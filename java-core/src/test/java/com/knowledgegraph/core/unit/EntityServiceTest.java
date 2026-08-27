@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.knowledgegraph.core.entity.Entity;
+import com.knowledgegraph.core.entity.EntityCreateRequest;
 import com.knowledgegraph.core.entity.EntityRepository;
 import com.knowledgegraph.core.entity.EntityService;
 import com.knowledgegraph.core.exception.ConflictException;
@@ -129,4 +130,26 @@ class EntityServiceTest {
 
         assertThat(updated.getProperties()).containsEntry("name", "Ada").containsEntry("age", 31);
     }
+
+        @Test
+        void createBulkReturnsPerItemOutcomes() {
+        when(entityTypeService.getByName("Person")).thenReturn(personType);
+        when(entityRepository.findByTypeAndIdentifyingValue("Person", "Ada"))
+            .thenReturn(Optional.empty())
+            .thenReturn(Optional.of(new Entity("existing-id", "Person", Map.of("name", "Ada"))));
+        when(entityRepository.save(any(Entity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new IllegalArgumentException("invalid item"))
+            .when(schemaValidator).validateEntityProperties(eq(personType), eq(Map.of("name", "Invalid")));
+
+        var result = entityService.createBulk(List.of(
+            new EntityCreateRequest("Person", Map.of("name", "Ada")),
+            new EntityCreateRequest("Person", Map.of("name", "Ada")),
+            new EntityCreateRequest("Person", Map.of("name", "Invalid"))));
+
+        assertThat(result.results()).extracting("status")
+            .containsExactly("created", "already_present", "rejected");
+        assertThat(result.results().get(0).index()).isZero();
+        assertThat(result.results().get(1).id()).isEqualTo("existing-id");
+        assertThat(result.results().get(2).error()).isEqualTo("invalid item");
+        }
 }

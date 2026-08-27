@@ -1,5 +1,7 @@
 package com.knowledgegraph.core.relationship;
 
+import com.knowledgegraph.core.bulk.BulkItemResult;
+import com.knowledgegraph.core.bulk.BulkResult;
 import com.knowledgegraph.core.entity.Entity;
 import com.knowledgegraph.core.entity.EntityService;
 import com.knowledgegraph.core.exception.NotFoundException;
@@ -39,6 +41,21 @@ public class RelationshipService {
                 UUID.randomUUID().toString(), type, sourceEntityId, targetEntityId, properties);
     }
 
+    public BulkResult createBulk(List<RelationshipCreateRequest> requests) {
+        List<BulkItemResult> results = new java.util.ArrayList<>();
+        for (int index = 0; index < requests.size(); index++) {
+            RelationshipCreateRequest request = requests.get(index);
+            try {
+                Relationship relationship = create(
+                        request.type(), request.sourceEntityId(), request.targetEntityId(), request.properties());
+                results.add(BulkItemResult.created(index, relationship.getId()));
+            } catch (RuntimeException exception) {
+                results.add(BulkItemResult.rejected(index, errorMessage(exception)));
+            }
+        }
+        return new BulkResult(results);
+    }
+
     public Relationship getById(String id) {
         return relationshipRepository
                 .findById(id)
@@ -66,5 +83,9 @@ public class RelationshipService {
     public void delete(String id) {
         getById(id); // 404 if unknown
         relationshipRepository.deleteById(id);
+    }
+
+    private String errorMessage(RuntimeException exception) {
+        return exception.getMessage() != null ? exception.getMessage() : exception.getClass().getSimpleName();
     }
 }

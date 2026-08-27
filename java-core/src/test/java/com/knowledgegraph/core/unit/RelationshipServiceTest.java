@@ -10,6 +10,7 @@ import com.knowledgegraph.core.entity.EntityService;
 import com.knowledgegraph.core.exception.NotFoundException;
 import com.knowledgegraph.core.exception.SchemaValidationException;
 import com.knowledgegraph.core.relationship.Relationship;
+import com.knowledgegraph.core.relationship.RelationshipCreateRequest;
 import com.knowledgegraph.core.relationship.RelationshipRepository;
 import com.knowledgegraph.core.relationship.RelationshipService;
 import com.knowledgegraph.core.schema.RelationshipTypeDefinition;
@@ -110,5 +111,25 @@ class RelationshipServiceTest {
         relationshipService.delete("r1");
 
         verify(relationshipRepository).deleteById("r1");
+    }
+
+    @Test
+    void createBulkReturnsPerItemOutcomes() {
+        when(relationshipTypeService.getByName("WORKS_AT")).thenReturn(worksAt);
+        when(entityService.getById("ada")).thenReturn(new Entity("ada", "Person", Map.of()));
+        when(entityService.getById("acme")).thenReturn(new Entity("acme", "Organization", Map.of()));
+        when(relationshipRepository.create(anyString(), eq("WORKS_AT"), eq("ada"), eq("acme"), anyMap()))
+                .thenReturn(new Relationship("r1", "WORKS_AT", "ada", "acme", Map.of()));
+        doThrow(new IllegalArgumentException("invalid relationship"))
+                .when(schemaValidator).validateRelationship(eq(worksAt), eq("Person"), eq("Organization"), eq(Map.of("bad", true)));
+
+        var result = relationshipService.createBulk(List.of(
+                new RelationshipCreateRequest("WORKS_AT", "ada", "acme", Map.of()),
+                new RelationshipCreateRequest("WORKS_AT", "ada", "acme", Map.of()),
+                new RelationshipCreateRequest("WORKS_AT", "ada", "acme", Map.of("bad", true))));
+
+        assertThat(result.results()).extracting("status")
+                .containsExactly("created", "created", "rejected");
+        assertThat(result.results().get(2).error()).isEqualTo("invalid relationship");
     }
 }

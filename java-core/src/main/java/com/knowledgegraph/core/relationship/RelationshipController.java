@@ -1,5 +1,7 @@
 package com.knowledgegraph.core.relationship;
 
+import com.knowledgegraph.core.bulk.BulkRelationshipCreateRequest;
+import com.knowledgegraph.core.bulk.BulkResult;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,11 @@ public class RelationshipController {
         Relationship created = relationshipService.create(
                 request.type(), request.sourceEntityId(), request.targetEntityId(), request.properties());
         return ResponseEntity.status(HttpStatus.CREATED).body(RelationshipDto.from(created));
+    }
+
+    @PostMapping("/relationships/bulk")
+    public BulkResult createBulk(@RequestBody BulkRelationshipCreateRequest request) {
+        return relationshipService.createBulk(request.items());
     }
 
     @PatchMapping("/relationships/{relationshipId}")

@@ -1,5 +1,7 @@
 package com.knowledgegraph.core.entity;
 
+import com.knowledgegraph.core.bulk.BulkItemResult;
+import com.knowledgegraph.core.bulk.BulkResult;
 import com.knowledgegraph.core.exception.ConflictException;
 import com.knowledgegraph.core.exception.NotFoundException;
 import com.knowledgegraph.core.relationship.RelationshipRepository;
@@ -37,6 +39,22 @@ public class EntityService {
         Entity entity = new Entity(UUID.randomUUID().toString(), type, properties);
         entity.setIdentifyingValue(identifyingValueOf(typeDefinition, properties));
         return entityRepository.save(entity);
+    }
+
+    public BulkResult createBulk(List<EntityCreateRequest> requests) {
+        List<BulkItemResult> results = new java.util.ArrayList<>();
+        for (int index = 0; index < requests.size(); index++) {
+            EntityCreateRequest request = requests.get(index);
+            try {
+                results.add(BulkItemResult.created(index, create(request.type(), request.properties()).getId()));
+            } catch (ConflictException exception) {
+                String existingId = findExistingId(request);
+                results.add(BulkItemResult.alreadyPresent(index, existingId));
+            } catch (RuntimeException exception) {
+                results.add(BulkItemResult.rejected(index, errorMessage(exception)));
+            }
+        }
+        return new BulkResult(results);
     }
 
     public Entity getById(String id) {
@@ -88,5 +106,24 @@ public class EntityService {
     private String identifyingValueOf(EntityTypeDefinition typeDefinition, Map<String, Object> properties) {
         Object value = properties.get(typeDefinition.getIdentifyingProperty());
         return value != null ? String.valueOf(value) : null;
+    }
+
+    private String findExistingId(EntityCreateRequest request) {
+        try {
+            EntityTypeDefinition typeDefinition = entityTypeService.getByName(request.type());
+            String identifyingValue = identifyingValueOf(typeDefinition, request.properties());
+            if (identifyingValue == null) {
+                return null;
+            }
+            return entityRepository.findByTypeAndIdentifyingValue(request.type(), identifyingValue)
+                    .map(Entity::getId)
+                    .orElse(null);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private String errorMessage(RuntimeException exception) {
+        return exception.getMessage() != null ? exception.getMessage() : exception.getClass().getSimpleName();
     }
 }

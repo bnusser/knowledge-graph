@@ -1,5 +1,7 @@
 package com.knowledgegraph.core.entity;
 
+import com.knowledgegraph.core.bulk.BulkEntityCreateRequest;
+import com.knowledgegraph.core.bulk.BulkResult;
 import com.knowledgegraph.core.relationship.RelationshipDto;
 import com.knowledgegraph.core.relationship.RelationshipService;
 import java.util.List;
@@ -29,6 +31,11 @@ public class EntityController {
     public ResponseEntity<EntityDto> create(@RequestBody EntityCreateRequest request) {
         Entity created = entityService.create(request.type(), request.properties());
         return ResponseEntity.status(HttpStatus.CREATED).body(EntityDto.from(created));
+    }
+
+    @PostMapping("/entities/bulk")
+    public BulkResult createBulk(@RequestBody BulkEntityCreateRequest request) {
+        return entityService.createBulk(request.items());
     }
 
     @GetMapping("/entities")

@@ -82,6 +82,9 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+          <systemPropertyVariables>
+            <api.version>1.45</api.version>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
       <plugin>
@@ -89,6 +92,9 @@
         <artifactId>maven-failsafe-plugin</artifactId>
         <configuration>
           <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+          <systemPropertyVariables>
+            <api.version>1.45</api.version>
+          </systemPropertyVariables>
         </configuration>
         <executions>
           <execution>
