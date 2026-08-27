@@ -1,0 +1,45 @@
+# --- Java / Maven / Gradle ---
+target/
+build/
+.gradle/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+HELP.md
+
+# --- Python ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.uv/
+
+# --- Node / React ---
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# --- Neo4j / data ---
+/data/
+/neo4j-data/
+*.db
+
+# --- Env & secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
