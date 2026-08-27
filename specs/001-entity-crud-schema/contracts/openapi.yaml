@@ -1,0 +1,369 @@
+openapi: 3.0.3
+info:
+  title: Knowledge Graph Core API
+  version: 0.1.0
+  description: >
+    Entity/relationship CRUD and schema modeling API for the Java knowledge-graph core.
+    Every request requires a valid X-API-Key header (Constitution Principle IV minimum
+    interim auth bar, FR-016). OAuth2/JWT is a later, dedicated security slice.
+servers:
+  - url: http://localhost:8080
+security:
+  - ApiKeyAuth: []
+paths:
+  /entity-types:
+    post:
+      summary: Define a new entity type (schema)
+      operationId: createEntityType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityTypeDefinition'
+      responses:
+        '201':
+          description: Entity type created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityTypeDefinition'
+        '409':
+          description: Entity type name already exists
+    get:
+      summary: List defined entity types
+      operationId: listEntityTypes
+      responses:
+        '200':
+          description: List of entity type definitions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EntityTypeDefinition'
+
+  /relationship-types:
+    post:
+      summary: Define a new relationship type (schema)
+      operationId: createRelationshipType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipTypeDefinition'
+      responses:
+        '201':
+          description: Relationship type created
+        '409':
+          description: Relationship type name already exists
+        '422':
+          description: References an unknown entity type in allowedSourceTypes/allowedTargetTypes
+    get:
+      summary: List defined relationship types
+      operationId: listRelationshipTypes
+      responses:
+        '200':
+          description: List of relationship type definitions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RelationshipTypeDefinition'
+
+  /entities:
+    post:
+      summary: Create a new entity
+      operationId: createEntity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityCreateRequest'
+      responses:
+        '201':
+          description: Entity created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '404':
+          description: Referenced entity type does not exist
+        '409':
+          description: Duplicate entity for this type's identifying property
+        '422':
+          description: Schema validation failure (missing required property, wrong type)
+    get:
+      summary: List entities, optionally filtered by type
+      operationId: listEntities
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of entities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Entity'
+
+  /entities/{entityId}:
+    parameters:
+      - name: entityId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Retrieve a single entity
+      operationId: getEntity
+      responses:
+        '200':
+          description: Entity found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '404':
+          description: Entity not found
+    patch:
+      summary: Update an entity's properties
+      operationId: updateEntity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityUpdateRequest'
+      responses:
+        '200':
+          description: Entity updated
+        '404':
+          description: Entity not found
+        '422':
+          description: Schema validation failure
+    delete:
+      summary: Delete an entity
+      operationId: deleteEntity
+      parameters:
+        - name: cascade
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '204':
+          description: Entity deleted
+        '404':
+          description: Entity not found
+        '409':
+          description: Entity has existing relationships and cascade was not requested
+
+  /entities/{entityId}/relationships:
+    parameters:
+      - name: entityId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: List relationships for an entity
+      operationId: listEntityRelationships
+      parameters:
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [incoming, outgoing, both]
+            default: both
+      responses:
+        '200':
+          description: List of relationships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Relationship'
+
+  /relationships:
+    post:
+      summary: Create a new relationship between two existing entities
+      operationId: createRelationship
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipCreateRequest'
+      responses:
+        '201':
+          description: Relationship created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+        '404':
+          description: Source or target entity (or relationship type) does not exist
+        '422':
+          description: Schema validation failure (disallowed source/target type, property rules)
+
+  /relationships/{relationshipId}:
+    parameters:
+      - name: relationshipId
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      summary: Update a relationship's properties
+      operationId: updateRelationship
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipUpdateRequest'
+      responses:
+        '200':
+          description: Relationship updated
+        '404':
+          description: Relationship not found
+        '422':
+          description: Schema validation failure
+    delete:
+      summary: Delete a relationship
+      operationId: deleteRelationship
+      responses:
+        '204':
+          description: Relationship deleted
+        '404':
+          description: Relationship not found
+
+components:
+  schemas:
+    PropertyDefinition:
+      type: object
+      required: [name, dataType, required]
+      properties:
+        name:
+          type: string
+        dataType:
+          type: string
+          enum: [STRING, INTEGER, FLOAT, BOOLEAN, DATE]
+        required:
+          type: boolean
+
+    EntityTypeDefinition:
+      type: object
+      required: [name, properties, identifyingProperty]
+      properties:
+        name:
+          type: string
+        properties:
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyDefinition'
+        identifyingProperty:
+          type: string
+
+    RelationshipTypeDefinition:
+      type: object
+      required: [name, allowedSourceTypes, allowedTargetTypes, properties]
+      properties:
+        name:
+          type: string
+        allowedSourceTypes:
+          type: array
+          items:
+            type: string
+        allowedTargetTypes:
+          type: array
+          items:
+            type: string
+        properties:
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyDefinition'
+
+    Entity:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+
+    EntityCreateRequest:
+      type: object
+      required: [type, properties]
+      properties:
+        type:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+
+    EntityUpdateRequest:
+      type: object
+      required: [properties]
+      properties:
+        properties:
+          type: object
+          additionalProperties: true
+
+    Relationship:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        sourceEntityId:
+          type: string
+        targetEntityId:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+
+    RelationshipCreateRequest:
+      type: object
+      required: [type, sourceEntityId, targetEntityId]
+      properties:
+        type:
+          type: string
+        sourceEntityId:
+          type: string
+        targetEntityId:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+
+    RelationshipUpdateRequest:
+      type: object
+      required: [properties]
+      properties:
+        properties:
+          type: object
+          additionalProperties: true
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
