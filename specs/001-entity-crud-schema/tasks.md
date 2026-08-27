@@ -31,14 +31,14 @@ Single Maven project `java-core/` at the repo root (per plan.md Project Structur
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create Maven project skeleton (standard layout) at `java-core/pom.xml` and `java-core/src/main/java/`, `java-core/src/test/java/`
-- [ ] T002 [P] Add `spring-boot-starter-web` and `spring-boot-starter-data-neo4j` dependencies to `java-core/pom.xml`
-- [ ] T003 [P] Add `springdoc-openapi-starter-webmvc-ui` dependency to `java-core/pom.xml`
-- [ ] T004 [P] Add JUnit5, Mockito, and Testcontainers (Neo4j module) test dependencies to `java-core/pom.xml`
-- [ ] T005 [P] Create `java-core/docker-compose.yml` with a Neo4j 5.x service (bolt 7687, http 7474, named volume)
-- [ ] T006 [P] Create `java-core/src/main/resources/application.yml` with Neo4j connection settings and server bound to `localhost` only
-- [ ] T007 [P] Create `java-core/src/main/resources/logback-spring.xml` for structured JSON logging
-- [ ] T008 Create `KnowledgeGraphCoreApplication` main class in `java-core/src/main/java/com/knowledgegraph/core/KnowledgeGraphCoreApplication.java`
+- [X] T001 Create Maven project skeleton (standard layout) at `java-core/pom.xml` and `java-core/src/main/java/`, `java-core/src/test/java/`
+- [X] T002 [P] Add `spring-boot-starter-web` and `spring-boot-starter-data-neo4j` dependencies to `java-core/pom.xml`
+- [X] T003 [P] Add `springdoc-openapi-starter-webmvc-ui` dependency to `java-core/pom.xml`
+- [X] T004 [P] Add JUnit5, Mockito, and Testcontainers (Neo4j module) test dependencies to `java-core/pom.xml`
+- [X] T005 [P] Create `java-core/docker-compose.yml` with a Neo4j 5.x service (bolt 7687, http 7474, named volume)
+- [X] T006 [P] Create `java-core/src/main/resources/application.yml` with Neo4j connection settings and server bound to `localhost` only
+- [X] T007 [P] Create `java-core/src/main/resources/logback-spring.xml` for structured JSON logging
+- [X] T008 Create `KnowledgeGraphCoreApplication` main class in `java-core/src/main/java/com/knowledgegraph/core/KnowledgeGraphCoreApplication.java`
 
 **Checkpoint**: `mvn spring-boot:run` starts an empty Spring Boot app connected to Neo4j.
 
@@ -48,22 +48,22 @@ Single Maven project `java-core/` at the repo root (per plan.md Project Structur
 
 **⚠️ CRITICAL**: No user story work can start until this phase is complete
 
-- [ ] T009 [P] Create `PropertyDefinition` value class in `java-core/src/main/java/com/knowledgegraph/core/schema/PropertyDefinition.java`
-- [ ] T010 [P] Create `EntityTypeDefinition` node entity in `java-core/src/main/java/com/knowledgegraph/core/schema/EntityTypeDefinition.java`
-- [ ] T011 [P] Create `RelationshipTypeDefinition` node entity in `java-core/src/main/java/com/knowledgegraph/core/schema/RelationshipTypeDefinition.java`
-- [ ] T012 [P] Create `Entity` node entity (id, type, properties map) in `java-core/src/main/java/com/knowledgegraph/core/entity/Entity.java`
-- [ ] T013 [P] Create `Relationship` node entity (id, type, sourceEntityId, targetEntityId, properties map) in `java-core/src/main/java/com/knowledgegraph/core/relationship/Relationship.java`
-- [ ] T014 [P] Create `EntityTypeDefinitionRepository` (`Neo4jRepository`) in `java-core/src/main/java/com/knowledgegraph/core/schema/EntityTypeDefinitionRepository.java`
-- [ ] T015 [P] Create `RelationshipTypeDefinitionRepository` (`Neo4jRepository`) in `java-core/src/main/java/com/knowledgegraph/core/schema/RelationshipTypeDefinitionRepository.java`
-- [ ] T016 [P] Create `EntityRepository` (`Neo4jRepository`, parameterized derived queries only) in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityRepository.java`
-- [ ] T017 [P] Create `RelationshipRepository` (`Neo4jRepository`, parameterized derived queries only) in `java-core/src/main/java/com/knowledgegraph/core/relationship/RelationshipRepository.java`
-- [ ] T018 Create `SchemaValidator` interface with a permissive no-op default `@Bean` in `java-core/src/main/java/com/knowledgegraph/core/schema/SchemaValidator.java` (real enforcement lands in US3; US1/US2 call this from day one so no rework is needed later)
-- [ ] T019 Create `EntityTypeService` and `EntityTypeController` with basic create/list, rejecting a create request whose name matches an existing `EntityTypeDefinition` with `409` (FR-017), in `java-core/src/main/java/com/knowledgegraph/core/schema/`
-- [ ] T020 Create `RelationshipTypeService` and `RelationshipTypeController` with basic create/list, rejecting a create request whose name matches an existing `RelationshipTypeDefinition` with `409` (FR-017), in `java-core/src/main/java/com/knowledgegraph/core/schema/`
-- [ ] T021 Create global exception handling (`@ControllerAdvice` mapping not-found/conflict/validation exceptions to 404/409/422) in `java-core/src/main/java/com/knowledgegraph/core/config/ApiExceptionHandler.java`
-- [ ] T022 Configure springdoc OpenAPI metadata (title/version/description) and register the `ApiKeyAuth` security scheme (`X-API-Key` header) as a global requirement, matching `contracts/openapi.yaml`, in `java-core/src/main/java/com/knowledgegraph/core/config/OpenApiConfig.java`
-- [ ] T023 [P] Write `ApiKeyAuthFilter` unit tests (valid key passes, missing/invalid key rejected) in `java-core/src/test/java/com/knowledgegraph/core/unit/ApiKeyAuthFilterTest.java`
-- [ ] T024 Implement `ApiKeyAuthFilter`: check the `X-API-Key` header on every request against a value configured via `app.security.api-key` in `application.yml`/an environment variable, returning `401` with a JSON error body when missing or invalid; register it for all `/entities`, `/relationships`, `/entity-types`, and `/relationship-types` endpoints, in `java-core/src/main/java/com/knowledgegraph/core/config/ApiKeyAuthFilter.java` (satisfies Constitution Principle IV's minimum interim auth bar for this slice)
+- [X] T009 [P] Create `PropertyDefinition` value class in `java-core/src/main/java/com/knowledgegraph/core/schema/PropertyDefinition.java`
+- [X] T010 [P] Create `EntityTypeDefinition` node entity in `java-core/src/main/java/com/knowledgegraph/core/schema/EntityTypeDefinition.java`
+- [X] T011 [P] Create `RelationshipTypeDefinition` node entity in `java-core/src/main/java/com/knowledgegraph/core/schema/RelationshipTypeDefinition.java`
+- [X] T012 [P] Create `Entity` node entity (id, type, properties map) in `java-core/src/main/java/com/knowledgegraph/core/entity/Entity.java`
+- [X] T013 [P] Create `Relationship` node entity (id, type, sourceEntityId, targetEntityId, properties map) in `java-core/src/main/java/com/knowledgegraph/core/relationship/Relationship.java`
+- [X] T014 [P] Create `EntityTypeDefinitionRepository` (`Neo4jRepository`) in `java-core/src/main/java/com/knowledgegraph/core/schema/EntityTypeDefinitionRepository.java`
+- [X] T015 [P] Create `RelationshipTypeDefinitionRepository` (`Neo4jRepository`) in `java-core/src/main/java/com/knowledgegraph/core/schema/RelationshipTypeDefinitionRepository.java`
+- [X] T016 [P] Create `EntityRepository` (`Neo4jRepository`, parameterized derived queries only) in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityRepository.java`
+- [X] T017 [P] Create `RelationshipRepository` (`Neo4jRepository`, parameterized derived queries only) in `java-core/src/main/java/com/knowledgegraph/core/relationship/RelationshipRepository.java`
+- [X] T018 Create `SchemaValidator` interface with a permissive no-op default `@Bean` in `java-core/src/main/java/com/knowledgegraph/core/schema/SchemaValidator.java` (real enforcement lands in US3; US1/US2 call this from day one so no rework is needed later)
+- [X] T019 Create `EntityTypeService` and `EntityTypeController` with basic create/list, rejecting a create request whose name matches an existing `EntityTypeDefinition` with `409` (FR-017), in `java-core/src/main/java/com/knowledgegraph/core/schema/`
+- [X] T020 Create `RelationshipTypeService` and `RelationshipTypeController` with basic create/list, rejecting a create request whose name matches an existing `RelationshipTypeDefinition` with `409` (FR-017), in `java-core/src/main/java/com/knowledgegraph/core/schema/`
+- [X] T021 Create global exception handling (`@ControllerAdvice` mapping not-found/conflict/validation exceptions to 404/409/422) in `java-core/src/main/java/com/knowledgegraph/core/config/ApiExceptionHandler.java`
+- [X] T022 Configure springdoc OpenAPI metadata (title/version/description) and register the `ApiKeyAuth` security scheme (`X-API-Key` header) as a global requirement, matching `contracts/openapi.yaml`, in `java-core/src/main/java/com/knowledgegraph/core/config/OpenApiConfig.java`
+- [X] T023 [P] Write `ApiKeyAuthFilter` unit tests (valid key passes, missing/invalid key rejected) in `java-core/src/test/java/com/knowledgegraph/core/unit/ApiKeyAuthFilterTest.java`
+- [X] T024 Implement `ApiKeyAuthFilter`: check the `X-API-Key` header on every request against a value configured via `app.security.api-key` in `application.yml`/an environment variable, returning `401` with a JSON error body when missing or invalid; register it for all `/entities`, `/relationships`, `/entity-types`, and `/relationship-types` endpoints, in `java-core/src/main/java/com/knowledgegraph/core/config/ApiKeyAuthFilter.java` (satisfies Constitution Principle IV's minimum interim auth bar for this slice)
 
 **Checkpoint**: Foundation ready — entity type and relationship type schemas can be registered and listed, and every request requires a valid API key; user story implementation can now begin in parallel.
 
@@ -73,10 +73,10 @@ Single Maven project `java-core/` at the repo root (per plan.md Project Structur
 
 **Independent Test**: Register an entity type, create an entity of that type, retrieve it by ID, update a property, delete it — verify each step without needing relationships or schema enforcement.
 
-- [ ] T025 [P] [US1] Write `EntityService` unit tests (Mockito) in `java-core/src/test/java/com/knowledgegraph/core/unit/EntityServiceTest.java`
-- [ ] T026 [P] [US1] Write Entity CRUD Testcontainers integration test in `java-core/src/test/java/com/knowledgegraph/core/integration/EntityCrudIT.java`
-- [ ] T027 [US1] Implement `EntityService` (create validates `type` exists via `EntityTypeDefinitionRepository`; get by id; list with optional type filter; update; delete) in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityService.java`
-- [ ] T028 [US1] Implement `EntityController` (`POST /entities`, `GET /entities`, `GET /entities/{id}`, `PATCH /entities/{id}`, `DELETE /entities/{id}`) in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityController.java`
+- [X] T025 [P] [US1] Write `EntityService` unit tests (Mockito) in `java-core/src/test/java/com/knowledgegraph/core/unit/EntityServiceTest.java`
+- [X] T026 [P] [US1] Write Entity CRUD Testcontainers integration test in `java-core/src/test/java/com/knowledgegraph/core/integration/EntityCrudIT.java`
+- [X] T027 [US1] Implement `EntityService` (create validates `type` exists via `EntityTypeDefinitionRepository`; get by id; list with optional type filter; update; delete) in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityService.java`
+- [X] T028 [US1] Implement `EntityController` (`POST /entities`, `GET /entities`, `GET /entities/{id}`, `PATCH /entities/{id}`, `DELETE /entities/{id}`) in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityController.java`
 
 **Checkpoint**: User Story 1 independently functional and testable — this is the MVP.
 
@@ -86,13 +86,13 @@ Single Maven project `java-core/` at the repo root (per plan.md Project Structur
 
 **Independent Test**: Create two entities, connect them with a relationship, retrieve it from either endpoint, update it, delete it, and confirm a relationship to a non-existent entity is rejected.
 
-- [ ] T029 [P] [US2] Write `RelationshipService` unit tests (Mockito) in `java-core/src/test/java/com/knowledgegraph/core/unit/RelationshipServiceTest.java`
-- [ ] T030 [P] [US2] Write Relationship CRUD + traversal Testcontainers integration test, including a self-relationship case, in `java-core/src/test/java/com/knowledgegraph/core/integration/RelationshipCrudIT.java`
-- [ ] T031 [P] [US2] Write `EntityService` delete-with-relationships Testcontainers integration test: deletion is blocked when relationships exist, succeeds with `cascade=true`, and no relationship ever ends up referencing a deleted entity (FR-005, SC-004), in `java-core/src/test/java/com/knowledgegraph/core/integration/EntityDeleteWithRelationshipsIT.java`
-- [ ] T032 [P] [US2] Write a large-scale relationship traversal performance test: seed ~1,000,000 entities / 5,000,000 relationships and assert single-hop retrieval from either endpoint entity completes in under 1 second (SC-003), tagged `@Tag("perf")` so it's excluded from the default fast test run, in `java-core/src/test/java/com/knowledgegraph/core/integration/RelationshipTraversalPerformanceIT.java`
-- [ ] T033 [US2] Implement `RelationshipService` (create validates source/target entities and relationship type exist, allows source == target; retrieve by entity + direction; update; delete) in `java-core/src/main/java/com/knowledgegraph/core/relationship/RelationshipService.java`
-- [ ] T034 [US2] Implement `RelationshipController` (`POST /relationships`, `PATCH /relationships/{id}`, `DELETE /relationships/{id}`, `GET /entities/{id}/relationships`) in `java-core/src/main/java/com/knowledgegraph/core/relationship/RelationshipController.java`
-- [ ] T035 [US2] Extend `EntityService.delete` with relationship-blocking + `cascade=true` override (FR-005), using `RelationshipRepository`, in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityService.java`
+- [X] T029 [P] [US2] Write `RelationshipService` unit tests (Mockito) in `java-core/src/test/java/com/knowledgegraph/core/unit/RelationshipServiceTest.java`
+- [X] T030 [P] [US2] Write Relationship CRUD + traversal Testcontainers integration test, including a self-relationship case, in `java-core/src/test/java/com/knowledgegraph/core/integration/RelationshipCrudIT.java`
+- [X] T031 [P] [US2] Write `EntityService` delete-with-relationships Testcontainers integration test: deletion is blocked when relationships exist, succeeds with `cascade=true`, and no relationship ever ends up referencing a deleted entity (FR-005, SC-004), in `java-core/src/test/java/com/knowledgegraph/core/integration/EntityDeleteWithRelationshipsIT.java`
+- [X] T032 [P] [US2] Write a large-scale relationship traversal performance test: seed ~1,000,000 entities / 5,000,000 relationships and assert single-hop retrieval from either endpoint entity completes in under 1 second (SC-003), tagged `@Tag("perf")` so it's excluded from the default fast test run, in `java-core/src/test/java/com/knowledgegraph/core/integration/RelationshipTraversalPerformanceIT.java`
+- [X] T033 [US2] Implement `RelationshipService` (create validates source/target entities and relationship type exist, allows source == target; retrieve by entity + direction; update; delete) in `java-core/src/main/java/com/knowledgegraph/core/relationship/RelationshipService.java`
+- [X] T034 [US2] Implement `RelationshipController` (`POST /relationships`, `PATCH /relationships/{id}`, `DELETE /relationships/{id}`, `GET /entities/{id}/relationships`) in `java-core/src/main/java/com/knowledgegraph/core/relationship/RelationshipController.java`
+- [X] T035 [US2] Extend `EntityService.delete` with relationship-blocking + `cascade=true` override (FR-005), using `RelationshipRepository`, in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityService.java`
 
 **Checkpoint**: User Stories 1 and 2 independently functional — full graph CRUD without schema enforcement.
 
@@ -102,23 +102,23 @@ Single Maven project `java-core/` at the repo root (per plan.md Project Structur
 
 **Independent Test**: Define a schema for one entity type and one relationship type, then verify conforming requests succeed and non-conforming ones (wrong property type, missing required property, disallowed source/target type, duplicate identifying property) are rejected with an error naming the violated rule.
 
-- [ ] T036 [P] [US3] Write `SchemaValidatorImpl` unit tests (required property, data type, source/target type, duplicate detection) in `java-core/src/test/java/com/knowledgegraph/core/unit/SchemaValidatorImplTest.java`
-- [ ] T037 [P] [US3] Write schema enforcement Testcontainers integration test covering all three US3 acceptance scenarios in `java-core/src/test/java/com/knowledgegraph/core/integration/SchemaEnforcementIT.java`
-- [ ] T038 [US3] Implement `SchemaValidatorImpl`: validate `identifyingProperty` references a declared property when an `EntityTypeDefinition` is created, in `java-core/src/main/java/com/knowledgegraph/core/schema/SchemaValidatorImpl.java`
-- [ ] T039 [US3] Implement property validation (required-ness + data type) for entity and relationship create/update in `SchemaValidatorImpl`
-- [ ] T040 [US3] Implement relationship type source/target type restriction validation in `SchemaValidatorImpl`
-- [ ] T041 [US3] Implement duplicate-entity detection (type + identifying-property value) via a generated Neo4j uniqueness constraint plus a service-layer pre-check, in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityService.java` and `java-core/src/main/java/com/knowledgegraph/core/schema/EntityTypeService.java`
-- [ ] T042 [US3] Register `SchemaValidatorImpl` as the active `SchemaValidator` bean, replacing the Foundational no-op default, in `java-core/src/main/java/com/knowledgegraph/core/config/SchemaValidatorConfig.java`
+- [X] T036 [P] [US3] Write `SchemaValidatorImpl` unit tests (required property, data type, source/target type, duplicate detection) in `java-core/src/test/java/com/knowledgegraph/core/unit/SchemaValidatorImplTest.java`
+- [X] T037 [P] [US3] Write schema enforcement Testcontainers integration test covering all three US3 acceptance scenarios in `java-core/src/test/java/com/knowledgegraph/core/integration/SchemaEnforcementIT.java`
+- [X] T038 [US3] Implement `SchemaValidatorImpl`: validate `identifyingProperty` references a declared property when an `EntityTypeDefinition` is created, in `java-core/src/main/java/com/knowledgegraph/core/schema/SchemaValidatorImpl.java`
+- [X] T039 [US3] Implement property validation (required-ness + data type) for entity and relationship create/update in `SchemaValidatorImpl`
+- [X] T040 [US3] Implement relationship type source/target type restriction validation in `SchemaValidatorImpl`
+- [X] T041 [US3] Implement duplicate-entity detection (type + identifying-property value) via a generated Neo4j uniqueness constraint plus a service-layer pre-check, in `java-core/src/main/java/com/knowledgegraph/core/entity/EntityService.java` and `java-core/src/main/java/com/knowledgegraph/core/schema/EntityTypeService.java`
+- [X] T042 [US3] Register `SchemaValidatorImpl` as the active `SchemaValidator` bean, replacing the Foundational no-op default, in `java-core/src/main/java/com/knowledgegraph/core/config/SchemaValidatorConfig.java`
 
 **Checkpoint**: All three user stories functional — full CRUD with schema enforcement.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T043 [P] Verify springdoc-generated OpenAPI output matches `specs/001-entity-crud-schema/contracts/openapi.yaml`; reconcile any drift
-- [ ] T044 [P] Write a restart-persistence integration test: create entities, relationships, and schema definitions, restart the Spring application context against the same Neo4j container, and assert all data is still present and unchanged (FR-015, SC-005), in `java-core/src/test/java/com/knowledgegraph/core/integration/RestartPersistenceIT.java`
-- [ ] T045 [P] Run all `quickstart.md` validation scenarios end-to-end against the `docker-compose` stack
-- [ ] T046 [P] Add a `java-core/README.md` with run instructions, linking to `specs/001-entity-crud-schema/quickstart.md`
-- [ ] T047 Audit every repository/query method for parameterized Cypher only, no string concatenation (Constitution Principle IV compliance pass)
+- [X] T043 [P] Verify springdoc-generated OpenAPI output matches `specs/001-entity-crud-schema/contracts/openapi.yaml`; reconcile any drift
+- [X] T044 [P] Write a restart-persistence integration test: create entities, relationships, and schema definitions, restart the Spring application context against the same Neo4j container, and assert all data is still present and unchanged (FR-015, SC-005), in `java-core/src/test/java/com/knowledgegraph/core/integration/RestartPersistenceIT.java`
+- [X] T045 [P] Run all `quickstart.md` validation scenarios end-to-end against the `docker-compose` stack
+- [X] T046 [P] Add a `java-core/README.md` with run instructions, linking to `specs/001-entity-crud-schema/quickstart.md`
+- [X] T047 Audit every repository/query method for parameterized Cypher only, no string concatenation (Constitution Principle IV compliance pass)
 
 ## Dependencies & Execution Order
 

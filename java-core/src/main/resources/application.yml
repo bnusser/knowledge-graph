@@ -1,0 +1,27 @@
+server:
+  port: 8080
+  address: 127.0.0.1 # loopback-only during local development
+
+spring:
+  application:
+    name: java-core
+  neo4j:
+    uri: bolt://localhost:7687
+    authentication:
+      username: neo4j
+      password: local-dev-password
+
+app:
+  security:
+    # Shared API key checked by ApiKeyAuthFilter on every request (Constitution Principle IV
+    # minimum interim auth bar, FR-016). Override via APP_SECURITY_API_KEY env var.
+    api-key: ${APP_SECURITY_API_KEY:local-dev-key}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  config: classpath:logback-spring.xml
