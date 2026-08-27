@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: Knowledge Graph Core API — Bulk Import Addition
+  version: 0.2.0
+  description: >
+    Additive bulk-import endpoints for the Java knowledge-graph core (feature 002). These
+    extend, and should be merged into, ../../001-entity-crud-schema/contracts/openapi.yaml —
+    the single canonical contract for the java-core API. Protected by the same ApiKeyAuth
+    scheme as every other /entities and /relationships path.
+paths:
+  /entities/bulk:
+    post:
+      summary: Create multiple entities in one request
+      operationId: createEntitiesBulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkEntityCreateRequest'
+      responses:
+        '200':
+          description: >
+            Per-item results (HTTP 200 even if some items were rejected — see each item's
+            status; FR-012).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResult'
+
+  /relationships/bulk:
+    post:
+      summary: Create multiple relationships in one request
+      operationId: createRelationshipsBulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkRelationshipCreateRequest'
+      responses:
+        '200':
+          description: Per-item results (HTTP 200 even if some items were rejected).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResult'
+
+components:
+  schemas:
+    BulkEntityCreateRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '../../001-entity-crud-schema/contracts/openapi.yaml#/components/schemas/EntityCreateRequest'
+
+    BulkRelationshipCreateRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '../../001-entity-crud-schema/contracts/openapi.yaml#/components/schemas/RelationshipCreateRequest'
+
+    BulkItemResult:
+      type: object
+      required: [index, status]
+      properties:
+        index:
+          type: integer
+          description: Position of this item in the submitted `items` array
+        status:
+          type: string
+          enum: [created, already_present, rejected]
+        id:
+          type: string
+          nullable: true
+          description: The created/existing record's id, when status is created or already_present
+        error:
+          type: string
+          nullable: true
+          description: Reason, when status is rejected
+
+    BulkResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BulkItemResult'
