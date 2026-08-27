@@ -1,0 +1,10 @@
+.git/
+.venv/
+venv/
+__pycache__/
+target/
+node_modules/
+.env*
+*.log
+coverage/
+data/
