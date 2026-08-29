@@ -32,13 +32,15 @@ def _boolean(value: str) -> bool:
 
 def _ensure_schema(client: ApiClient) -> None:
     client.ensure_entity_type({"name": "Account", "properties": [
-        {"name": "name", "dataType": "STRING", "required": True}], "identifyingProperty": "name"})
+        {"name": "name", "dataType": "STRING", "required": True},
+        {"name": "dataset", "dataType": "STRING", "required": True}], "identifyingProperty": "name"})
     client.ensure_relationship_type({"name": "TRANSACTION", "allowedSourceTypes": ["Account"],
         "allowedTargetTypes": ["Account"], "properties": [
             {"name": name, "dataType": "BOOLEAN" if name in BOOLEAN_FIELDS else
              "INTEGER" if name == "step" else "FLOAT" if name != "type" else "STRING", "required": True}
             for name in ["step", "type", "amount", "oldBalanceOrig", "newBalanceOrig",
-                         "oldBalanceDest", "newBalanceDest", "isFraud", "isFlaggedFraud"]]})
+                         "oldBalanceDest", "newBalanceDest", "isFraud", "isFlaggedFraud"]]
+            + [{"name": "dataset", "dataType": "STRING", "required": True}]})
 
 
 def load(input_path: Path, client: ApiClient, limit: int | None = None) -> LoadSummary:
@@ -55,7 +57,7 @@ def load(input_path: Path, client: ApiClient, limit: int | None = None) -> LoadS
                     name = row.get(name_key, "").strip()
                     if name and name not in seen:
                         seen.add(name)
-                        yield {"type": "Account", "properties": {"name": name}}
+                        yield {"type": "Account", "properties": {"name": name, "dataset": "paysim"}}
 
     try:
         account_results = client.send_entities(accounts())
@@ -85,7 +87,7 @@ def load(input_path: Path, client: ApiClient, limit: int | None = None) -> LoadS
                         if source_name not in account_ids or target_name not in account_ids:
                             summary.skip("PaySim row references an unknown account")
                             continue
-                        properties: dict[str, object] = {"type": row["type"]}
+                        properties: dict[str, object] = {"type": row["type"], "dataset": "paysim"}
                         for field, (source_field, converter) in NUMBER_FIELDS.items():
                             properties[field] = converter(row[source_field])
                         for field in BOOLEAN_FIELDS:
@@ -109,8 +111,12 @@ def main() -> None:
     parser.add_argument("--api-key", required=True)
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--max-workers", type=int, default=1, help="concurrent bulk-request workers (default: sequential)")
+    parser.add_argument("--timeout", type=float, default=30.0, help="per-request HTTP timeout in seconds (default: 30)")
     args = parser.parse_args()
-    load(args.input, ApiClient(args.api_url, args.api_key, args.batch_size), args.limit)
+    load(args.input,
+         ApiClient(args.api_url, args.api_key, args.batch_size, timeout=args.timeout, max_workers=args.max_workers),
+         args.limit)
 
 
 if __name__ == "__main__":

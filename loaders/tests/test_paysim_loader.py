@@ -42,6 +42,8 @@ def test_limit_is_deterministic_and_values_are_coerced(tmp_path):
     assert properties["amount"] == 10.5
     assert properties["isFraud"] is True
     assert properties["isFlaggedFraud"] is False
+    assert properties["dataset"] == "paysim"
+    assert client.entity_batches[0][0]["properties"]["dataset"] == "paysim"
     assert summary.skipped == 0
 
 

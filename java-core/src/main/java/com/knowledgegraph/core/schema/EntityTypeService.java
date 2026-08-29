@@ -58,17 +58,16 @@ public class EntityTypeService {
     }
 
     /**
-     * Composite uniqueness constraint on (type, properties.&lt;identifyingProperty&gt;), scoping
-     * duplicate detection per entity type (FR-014). The property key is interpolated into DDL —
-     * not a normal query — because Neo4j has no parameter syntax for constraint definitions;
-     * this is safe only because {@code identifyingProperty} was just validated against
-     * {@link #NAME_PATTERN} above, never used raw from the request.
+     * Composite uniqueness constraint on (type, identifyingValue) — the same flat,
+     * natively-indexable field {@link com.knowledgegraph.core.entity.EntityRepository
+     * #findByTypeAndIdentifyingValue} queries — scoping duplicate detection per entity type
+     * (FR-014). Without this index-backed match, every duplicate check degrades to a full
+     * label scan as the graph grows.
      */
     private void createUniquenessConstraint(String entityTypeName, String identifyingProperty) {
         String constraintName = "uniq_" + entityTypeName.toLowerCase() + "_" + identifyingProperty.toLowerCase();
-        String propertyKey = "properties." + identifyingProperty;
         String ddl = "CREATE CONSTRAINT " + constraintName + " IF NOT EXISTS FOR (e:Entity) "
-                + "REQUIRE (e.type, e.`" + propertyKey + "`) IS UNIQUE";
+                + "REQUIRE (e.type, e.identifyingValue) IS UNIQUE";
         neo4jClient.query(ddl).run();
     }
 }

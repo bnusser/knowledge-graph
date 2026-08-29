@@ -13,6 +13,8 @@ import com.knowledgegraph.core.schema.RelationshipTypeDefinitionDto;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,9 @@ import org.springframework.http.ResponseEntity;
 
 /** Covers all three User Story 3 acceptance scenarios (schema definition + enforcement). */
 class SchemaEnforcementIT extends AbstractNeo4jIntegrationTest {
+
+    @Autowired
+    private Neo4jClient neo4jClient;
 
     private HttpHeaders authHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -144,5 +149,26 @@ class SchemaEnforcementIT extends AbstractNeo4jIntegrationTest {
                 String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND); // FR-018
+    }
+
+    @Test
+    void uniquenessConstraintTargetsTheFlatIndexedIdentifyingValueField() {
+        registerPersonAndOrganizationTypes();
+
+        // Every entity type's constraint is structurally (Entity.type, Entity.identifyingValue)
+        // IS UNIQUE, so Neo4j's IF NOT EXISTS treats the first one created (regardless of the
+        // name assigned) as satisfying all later, equivalent constraint-creation attempts — only
+        // one such constraint need exist for this assertion to hold, under any name.
+        boolean hasEquivalentConstraint = neo4jClient
+                .query("SHOW CONSTRAINTS")
+                .fetch()
+                .all()
+                .stream()
+                .anyMatch(row -> List.of("type", "identifyingValue").equals(row.get("properties")));
+
+        // Must match what EntityRepository#findByTypeAndIdentifyingValue actually queries —
+        // not the fabricated "properties.<name>" key — or duplicate checks degrade to a full
+        // label scan as the graph grows (see EntityTypeService#createUniquenessConstraint).
+        assertThat(hasEquivalentConstraint).isTrue();
     }
 }

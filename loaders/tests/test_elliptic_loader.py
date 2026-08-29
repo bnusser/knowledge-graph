@@ -1,5 +1,7 @@
 from kg_loaders.elliptic_loader import load
 
+import pytest
+
 
 class FakeClient:
     def __init__(self):
@@ -35,7 +37,42 @@ def test_loads_nodes_classes_and_only_resolvable_edges(tmp_path):
     summary = load(nodes, edges, classes, client)
 
     assert client.entity_batches[0][0]["properties"]["class"] == "licit"
+    assert client.entity_batches[0][0]["properties"]["dataset"] == "elliptic"
+    assert client.relationship_batches[0][0]["properties"]["dataset"] == "elliptic"
     assert len(client.relationship_batches[0]) == 1
     assert summary.created == 3
     assert summary.skipped == 1
     assert "unknown transaction" in summary.skip_reasons[0]
+
+
+def test_swapped_nodes_and_edges_files_fail_fast(tmp_path):
+    # --nodes was accidentally pointed at edge-list-shaped content.
+    nodes = tmp_path / "nodes.csv"
+    nodes.write_text("txId1,txId2\ntx-a,tx-b\n", encoding="utf-8")
+    classes = tmp_path / "classes.csv"
+    classes.write_text("txId,class\ntx-a,licit\n", encoding="utf-8")
+    edges = tmp_path / "edges.csv"
+    edges.write_text("txId,class\ntx-a,licit\n", encoding="utf-8")
+    client = FakeClient()
+
+    with pytest.raises(ValueError, match="missing expected column"):
+        load(nodes, edges, classes, client)
+
+
+def test_headerless_features_file_is_parsed_positionally(tmp_path):
+    # The authentic Elliptic features file has no header: txId, time step, ~165 features.
+    nodes = tmp_path / "nodes.csv"
+    nodes.write_text("tx-a,1,0.12,-0.4\ntx-b,2,0.98,1.1\n", encoding="utf-8")
+    classes = tmp_path / "classes.csv"
+    classes.write_text("txId,class\ntx-a,licit\ntx-b,illicit\n", encoding="utf-8")
+    edges = tmp_path / "edges.csv"
+    edges.write_text("txId1,txId2\ntx-a,tx-b\n", encoding="utf-8")
+    client = FakeClient()
+
+    summary = load(nodes, edges, classes, client)
+
+    properties = client.entity_batches[0][0]["properties"]
+    assert properties == {"txId": "tx-a", "timeStep": 1, "class": "licit", "dataset": "elliptic"}
+    assert summary.created == 3
+    assert summary.skipped == 0
+

@@ -18,6 +18,7 @@ def _ensure_schema(client: ApiClient) -> None:
             {"name": "txId", "dataType": "STRING", "required": True},
             {"name": "timeStep", "dataType": "INTEGER", "required": True},
             {"name": "class", "dataType": "STRING", "required": True},
+            {"name": "dataset", "dataType": "STRING", "required": True},
         ],
         "identifyingProperty": "txId",
     })
@@ -25,13 +26,79 @@ def _ensure_schema(client: ApiClient) -> None:
         "name": "FLOWS_TO",
         "allowedSourceTypes": ["Transaction"],
         "allowedTargetTypes": ["Transaction"],
-        "properties": [],
+        "properties": [{"name": "dataset", "dataType": "STRING", "required": True}],
     })
+
+
+def _require_columns(path: Path, candidates: dict[str, tuple[str, ...]]) -> None:
+    """Fail fast with a clear error if a source file's header doesn't match any expected name.
+
+    `candidates` maps a logical column (e.g. "transaction id") to the header names accepted
+    for it. Prevents silently skipping every row when the wrong file is passed to a flag.
+    """
+    with path.open(newline="", encoding="utf-8-sig") as source:
+        header = next(csv.reader(source), [])
+    missing = [
+        logical_name
+        for logical_name, accepted_headers in candidates.items()
+        if not any(name in header for name in accepted_headers)
+    ]
+    if missing:
+        raise ValueError(
+            f"{path} is missing expected column(s) {missing} (found header: {header}); "
+            "check that the correct dataset file was passed for this argument"
+        )
+
+
+def _iter_node_rows(path: Path) -> Iterable[tuple[str | None, str | None]]:
+    """Yield (txId, timeStep) pairs from the Elliptic node/features file.
+
+    The authentic Elliptic dataset ships this file with no header row at all (columns:
+    txId, time step, then ~165 anonymized numeric features); some re-uploads add a header
+    instead. Detect which format a given file uses from its first row rather than assuming one.
+    """
+    with path.open(newline="", encoding="utf-8-sig") as source:
+        reader = csv.reader(source)
+        first_row = next(reader, None)
+        if first_row is None or len(first_row) < 2:
+            raise ValueError(f"{path} has no data (expected at least txId and time step columns)")
+        if _is_header_row(first_row):
+            tx_index = _index_of(first_row, "transaction id", ("txId", "transactionId"))
+            time_index = _index_of(first_row, "time step", ("time step", "timeStep"))
+        else:
+            tx_index, time_index = 0, 1
+            yield (first_row[tx_index], first_row[time_index])
+        for row in reader:
+            if len(row) <= max(tx_index, time_index):
+                yield (None, None)
+                continue
+            yield (row[tx_index], row[time_index])
+
+
+def _is_header_row(row: list[str]) -> bool:
+    """A header's second field (time step) is text; a headerless data row's is numeric."""
+    try:
+        int(row[1])
+        return False
+    except ValueError:
+        return True
+
+
+def _index_of(header: list[str], logical_name: str, accepted_names: tuple[str, ...]) -> int:
+    for name in accepted_names:
+        if name in header:
+            return header.index(name)
+    raise ValueError(
+        f"missing expected column '{logical_name}' (found header: {header}); "
+        "check that the correct dataset file was passed for this argument"
+    )
 
 
 def load(nodes_path: Path, edges_path: Path, classes_path: Path, client: ApiClient) -> LoadSummary:
     summary = LoadSummary()
     _ensure_schema(client)
+    _require_columns(classes_path, {"transaction id": ("txId", "txId1", "transactionId")})
+    _require_columns(edges_path, {"source id": ("txId1", "source", "sourceId"), "target id": ("txId2", "target", "targetId")})
     classes: dict[str, str] = {}
     with classes_path.open(newline="", encoding="utf-8-sig") as source:
         for row in csv.DictReader(source):
@@ -42,20 +109,20 @@ def load(nodes_path: Path, edges_path: Path, classes_path: Path, client: ApiClie
     entity_ids: dict[str, str] = {}
     submitted_ids: list[str] = []
     def entities() -> Iterable[dict[str, object]]:
-        with nodes_path.open(newline="", encoding="utf-8-sig") as source:
-            for row in csv.DictReader(source):
-                tx_id = row.get("txId") or row.get("transactionId")
-                time_step = row.get("time step") or row.get("timeStep")
-                if not tx_id or time_step is None:
-                    summary.skip("malformed Elliptic node row")
-                    continue
-                try:
-                    submitted_ids.append(tx_id)
-                    yield {"type": "Transaction", "properties": {
-                        "txId": tx_id, "timeStep": int(time_step), "class": classes.get(tx_id, "unknown")
-                    }}
-                except ValueError:
-                    summary.skip(f"invalid time step for transaction {tx_id}")
+        for tx_id, time_step in _iter_node_rows(nodes_path):
+            if not tx_id or time_step is None:
+                summary.skip("malformed Elliptic node row")
+                continue
+            try:
+                parsed_time_step = int(time_step)
+            except ValueError:
+                summary.skip(f"invalid time step for transaction {tx_id}")
+                continue
+            submitted_ids.append(tx_id)
+            yield {"type": "Transaction", "properties": {
+                "txId": tx_id, "timeStep": parsed_time_step, "class": classes.get(tx_id, "unknown"),
+                "dataset": "elliptic",
+            }}
 
     try:
         results = client.send_entities(entities())
@@ -73,7 +140,7 @@ def load(nodes_path: Path, edges_path: Path, classes_path: Path, client: ApiClie
                         summary.skip("Elliptic edge references an unknown transaction")
                         continue
                     yield {"type": "FLOWS_TO", "sourceEntityId": entity_ids[source_id],
-                           "targetEntityId": entity_ids[target_id], "properties": {}}
+                           "targetEntityId": entity_ids[target_id], "properties": {"dataset": "elliptic"}}
 
         summary.add_results(client.send_relationships(relationships()))
     except ApiClientError as error:
@@ -90,8 +157,11 @@ def main() -> None:
     parser.add_argument("--api-url", required=True)
     parser.add_argument("--api-key", required=True)
     parser.add_argument("--batch-size", type=int, default=500)
+    parser.add_argument("--max-workers", type=int, default=1, help="concurrent bulk-request workers (default: sequential)")
+    parser.add_argument("--timeout", type=float, default=30.0, help="per-request HTTP timeout in seconds (default: 30)")
     args = parser.parse_args()
-    load(args.nodes, args.edges, args.classes, ApiClient(args.api_url, args.api_key, args.batch_size))
+    load(args.nodes, args.edges, args.classes,
+         ApiClient(args.api_url, args.api_key, args.batch_size, timeout=args.timeout, max_workers=args.max_workers))
 
 
 if __name__ == "__main__":

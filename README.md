@@ -46,6 +46,8 @@ For the implemented layer (`java-core/`):
 - Maven 3.9+
 - Docker (for Neo4j locally and for Testcontainers-based integration tests)
 
+For the dataset loaders (`loaders/`): Python 3.12+ with `uv`.
+
 Future layers will additionally need Python 3.12+ (with `uv`) for the agent, and Node.js/React
 for the front-end — not required yet.
 
@@ -69,6 +71,25 @@ security slice).
 Full details, including a scenario-by-scenario validation walkthrough, are in
 [java-core/README.md](java-core/README.md) and
 [specs/001-entity-crud-schema/quickstart.md](specs/001-entity-crud-schema/quickstart.md).
+
+## Dataset Loaders
+
+`loaders/` contains Python CLI loaders that populate the graph via `java-core`'s bulk-import
+API. With `java-core` and Neo4j already running:
+
+```powershell
+cd loaders
+uv sync
+uv run python -m kg_loaders.elliptic_loader `
+  --nodes path\to\elliptic_txs_features.csv `
+  --edges path\to\elliptic_txs_edgelist.csv `
+  --classes path\to\elliptic_txs_classes.csv `
+  --api-url http://127.0.0.1:8080 `
+  --api-key local-dev-key
+```
+
+PaySim loads the same way via `kg_loaders.paysim_loader` (add `--limit N` for a partial load).
+Full details in [specs/002-elliptic-paysim-loaders/quickstart.md](specs/002-elliptic-paysim-loaders/quickstart.md).
 
 ## Test
 
