@@ -22,12 +22,34 @@ flowchart LR
 | Layer | Status | Location |
 |---|---|---|
 | Java core (entity/relationship CRUD + schema, Neo4j) | ✅ Implemented | [java-core/](java-core/) |
+| Dataset loaders (Elliptic + PaySim, bulk-import API) | ✅ Implemented | [loaders/](loaders/) |
 | MCP server (exposes the Java API as MCP tools) | Not started | future slice |
 | Python LangGraph agent (agentic tool-use orchestrator) | Not started | future slice |
 | React front-end (visualization, search, chat, admin CRUD) | Not started | future slice |
 
-Only the Java core is built so far; the other layers are separate, later feature slices per the
-constitution's MVP-first delivery principle (see Development Workflow below).
+Only the Java core and dataset loaders are built so far; the remaining layers are separate,
+later feature slices per the constitution's MVP-first delivery principle (see Development
+Workflow below).
+
+## Roadmap
+
+The constitution's Principle VI ("North-Star Scope with MVP-First Delivery") defines the full
+target system; this is the planned order of feature slices toward it. Each is specified,
+planned, and tasked via Spec Kit (see Development Workflow below) only when work on it begins —
+entries below aren't yet-created specs, just the intended sequence.
+
+1. ✅ `001-entity-crud-schema` — Java/Spring Boot core: entity/relationship CRUD, schema modeling
+2. ✅ `002-elliptic-paysim-loaders` — bulk-import API + Elliptic/PaySim dataset loaders
+3. Traversal + graph algorithms (extends the Java core)
+4. Query DSL
+5. NLP-based entity extraction
+6. MCP server (exposes the Java API as MCP tools)
+7. Python LangGraph agent (agentic tool-use orchestrator)
+8. React front-end (visualization, search, chat, admin CRUD)
+9. Full OAuth2/JWT auth (upgrade from the interim API-key bar)
+
+This order isn't fixed — re-prioritize freely as the project evolves, updating this list in the
+same change.
 
 ## Repository Structure
 
