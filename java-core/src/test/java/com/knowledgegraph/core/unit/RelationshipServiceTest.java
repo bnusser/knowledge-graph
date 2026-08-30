@@ -118,8 +118,10 @@ class RelationshipServiceTest {
         when(relationshipTypeService.getByName("WORKS_AT")).thenReturn(worksAt);
         when(entityService.getById("ada")).thenReturn(new Entity("ada", "Person", Map.of()));
         when(entityService.getById("acme")).thenReturn(new Entity("acme", "Organization", Map.of()));
-        when(relationshipRepository.create(anyString(), eq("WORKS_AT"), eq("ada"), eq("acme"), anyMap()))
-                .thenReturn(new Relationship("r1", "WORKS_AT", "ada", "acme", Map.of()));
+        when(relationshipRepository.createBatch(anyList()))
+                .thenReturn(List.of(
+                        new Relationship("r1", "WORKS_AT", "ada", "acme", Map.of()),
+                        new Relationship("r2", "WORKS_AT", "ada", "acme", Map.of())));
         doThrow(new IllegalArgumentException("invalid relationship"))
                 .when(schemaValidator).validateRelationship(eq(worksAt), eq("Person"), eq("Organization"), eq(Map.of("bad", true)));
 

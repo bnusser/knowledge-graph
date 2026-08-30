@@ -51,6 +51,32 @@ public class RelationshipRepository {
                 .orElseThrow(() -> new IllegalStateException("Failed to create relationship " + id));
     }
 
+    /**
+     * Creates many relationships in a single UNWIND-based statement — one transaction/commit
+     * for the whole batch rather than one per relationship — since per-item commit overhead
+     * dominates bulk-load cost. {@code rows} entries need keys: id, type, sourceId, targetId,
+     * properties. Re-maps results by the caller-supplied {@code id} rather than trusting
+     * result-row order, since Cypher doesn't guarantee UNWIND row order is preserved on return.
+     */
+    public List<Relationship> createBatch(List<Map<String, Object>> rows) {
+        String cypher = "UNWIND $rows AS row "
+                + "MATCH (source:Entity {id: row.sourceId}), (target:Entity {id: row.targetId}) "
+                + "CREATE (source)-[r:RELATES {id: row.id, type: row.type}]->(target) "
+                + "SET r += row.properties "
+                + "RETURN r, source.id AS sourceId, target.id AS targetId";
+        List<Relationship> created = neo4jClient
+                .query(cypher)
+                .bind(rows)
+                .to("rows")
+                .fetchAs(Relationship.class)
+                .mappedBy(this::toRelationship)
+                .all()
+                .stream()
+                .toList();
+        Map<String, Relationship> byId = created.stream().collect(java.util.stream.Collectors.toMap(Relationship::getId, r -> r));
+        return rows.stream().map(row -> byId.get((String) row.get("id"))).toList();
+    }
+
     public Optional<Relationship> findById(String id) {
         String cypher = "MATCH (source)-[r:RELATES {id: $id}]->(target) "
                 + "RETURN r, source.id AS sourceId, target.id AS targetId";

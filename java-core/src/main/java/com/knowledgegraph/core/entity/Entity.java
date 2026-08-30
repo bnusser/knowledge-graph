@@ -67,6 +67,11 @@ public class Entity {
         }
     }
 
+    /** Raw serialized form, for callers building their own Cypher parameters (e.g. batch create). */
+    public String getPropertiesJson() {
+        return propertiesJson;
+    }
+
     public final void setProperties(Map<String, Object> properties) {
         try {
             this.propertiesJson = MAPPER.writeValueAsString(properties);

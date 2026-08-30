@@ -137,7 +137,7 @@ class EntityServiceTest {
         when(entityRepository.findByTypeAndIdentifyingValue("Person", "Ada"))
             .thenReturn(Optional.empty())
             .thenReturn(Optional.of(new Entity("existing-id", "Person", Map.of("name", "Ada"))));
-        when(entityRepository.save(any(Entity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doNothing().when(entityRepository).createBatch(anyList());
         doThrow(new IllegalArgumentException("invalid item"))
             .when(schemaValidator).validateEntityProperties(eq(personType), eq(Map.of("name", "Invalid")));
 

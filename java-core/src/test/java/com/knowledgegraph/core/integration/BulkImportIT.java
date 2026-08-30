@@ -69,6 +69,50 @@ class BulkImportIT extends AbstractNeo4jIntegrationTest {
     }
 
     @Test
+    void createsEntitiesAndRelationshipsAcrossMultipleWriteSubBatches() {
+        // WRITE_SUB_BATCH_SIZE is 50; use 120 items to span three sub-batches (50/50/20) and
+        // confirm no items are lost, duplicated, or misindexed at a sub-batch boundary.
+        var personType = new EntityTypeDefinitionDto(
+                "ScaleTestPerson", List.of(new PropertyDefinition("name", PropertyDataType.STRING, true)), "name");
+        restTemplate.postForEntity("/entity-types", new HttpEntity<>(personType, authHeaders()), String.class);
+
+        var entityRequest = new BulkEntityCreateRequest(
+                java.util.stream.IntStream.range(0, 120)
+                        .mapToObj(i -> new EntityCreateRequest("ScaleTestPerson", Map.of("name", "person-" + i)))
+                        .toList());
+        ResponseEntity<JsonNode> entityResponse = restTemplate.postForEntity(
+                "/entities/bulk", new HttpEntity<>(entityRequest, authHeaders()), JsonNode.class);
+
+        assertThat(entityResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode entityResults = entityResponse.getBody().get("results");
+        assertThat(entityResults).hasSize(120);
+        for (int i = 0; i < 120; i++) {
+            assertThat(entityResults.get(i).get("status").asText()).isEqualTo("created");
+            assertThat(entityResults.get(i).get("id").asText()).isNotBlank();
+        }
+        assertThat(new java.util.HashSet<>(entityResults.findValuesAsText("id"))).hasSize(120); // no duplicate ids
+
+        var relationshipType = new RelationshipTypeDefinitionDto(
+                "SCALE_KNOWS", List.of("ScaleTestPerson"), List.of("ScaleTestPerson"), List.of());
+        restTemplate.postForEntity("/relationship-types", new HttpEntity<>(relationshipType, authHeaders()), String.class);
+
+        List<String> ids = entityResults.findValuesAsText("id");
+        var relationshipRequest = new BulkRelationshipCreateRequest(
+                java.util.stream.IntStream.range(0, 120)
+                        .mapToObj(i -> new RelationshipCreateRequest("SCALE_KNOWS", ids.get(i), ids.get((i + 1) % 120), Map.of()))
+                        .toList());
+        ResponseEntity<JsonNode> relationshipResponse = restTemplate.postForEntity(
+                "/relationships/bulk", new HttpEntity<>(relationshipRequest, authHeaders()), JsonNode.class);
+
+        assertThat(relationshipResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode relationshipResults = relationshipResponse.getBody().get("results");
+        assertThat(relationshipResults).hasSize(120);
+        for (int i = 0; i < 120; i++) {
+            assertThat(relationshipResults.get(i).get("status").asText()).isEqualTo("created");
+        }
+    }
+
+    @Test
     void bulkEndpointsRequireApiKey() {
         var request = new BulkEntityCreateRequest(List.of());
         ResponseEntity<String> response = restTemplate.postForEntity("/entities/bulk", request, String.class);
