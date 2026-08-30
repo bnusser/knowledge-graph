@@ -171,4 +171,18 @@ class SchemaEnforcementIT extends AbstractNeo4jIntegrationTest {
         // label scan as the graph grows (see EntityTypeService#createUniquenessConstraint).
         assertThat(hasEquivalentConstraint).isTrue();
     }
+
+    @Test
+    void entityIdConstraintExistsForFastRelationshipCreationLookups() {
+        // Without this, MATCH (e:Entity {id: $id}) — used by every relationship create — would
+        // degrade to a full label scan across all Entity nodes as the graph grows.
+        boolean hasEntityIdConstraint = neo4jClient
+                .query("SHOW CONSTRAINTS")
+                .fetch()
+                .all()
+                .stream()
+                .anyMatch(row -> List.of("id").equals(row.get("properties")));
+
+        assertThat(hasEntityIdConstraint).isTrue();
+    }
 }

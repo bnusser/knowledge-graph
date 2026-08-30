@@ -29,7 +29,8 @@ public class RelationshipRepository {
     public Relationship create(
             String id, String type, String sourceEntityId, String targetEntityId, Map<String, Object> properties) {
         String cypher =
-                "MATCH (source:Entity {id: $sourceId}), (target:Entity {id: $targetId}) "
+                "MATCH (source:Entity {id: $sourceId}) "
+                        + "MATCH (target:Entity {id: $targetId}) "
                         + "CREATE (source)-[r:RELATES {id: $id, type: $type}]->(target) "
                         + "SET r += $properties "
                         + "RETURN r, source.id AS sourceId, target.id AS targetId";
@@ -60,7 +61,8 @@ public class RelationshipRepository {
      */
     public List<Relationship> createBatch(List<Map<String, Object>> rows) {
         String cypher = "UNWIND $rows AS row "
-                + "MATCH (source:Entity {id: row.sourceId}), (target:Entity {id: row.targetId}) "
+                + "MATCH (source:Entity {id: row.sourceId}) "
+                + "MATCH (target:Entity {id: row.targetId}) "
                 + "CREATE (source)-[r:RELATES {id: row.id, type: row.type}]->(target) "
                 + "SET r += row.properties "
                 + "RETURN r, source.id AS sourceId, target.id AS targetId";

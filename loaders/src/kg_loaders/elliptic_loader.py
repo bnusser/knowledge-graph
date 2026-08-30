@@ -94,7 +94,9 @@ def _index_of(header: list[str], logical_name: str, accepted_names: tuple[str, .
     )
 
 
-def load(nodes_path: Path, edges_path: Path, classes_path: Path, client: ApiClient) -> LoadSummary:
+def load(
+    nodes_path: Path, edges_path: Path, classes_path: Path, client: ApiClient, skip_entities: bool = False
+) -> LoadSummary:
     summary = LoadSummary()
     _ensure_schema(client)
     _require_columns(classes_path, {"transaction id": ("txId", "txId1", "transactionId")})
@@ -125,11 +127,21 @@ def load(nodes_path: Path, edges_path: Path, classes_path: Path, client: ApiClie
             }}
 
     try:
-        results = client.send_entities(entities())
-        summary.add_results(results)
-        for tx_id, result in zip(submitted_ids, results):
-            if result.get("status") in {"created", "already_present"} and result.get("id"):
-                entity_ids[tx_id] = str(result["id"])
+        if skip_entities:
+            # Entities already loaded: one read instead of re-submitting ~all of them just to
+            # get "already_present" back. Builds the same txId -> Neo4j id mapping the
+            # relationships phase needs, from what's already in the graph.
+            for existing in client.get("/entities?type=Transaction"):
+                tx_id = existing.get("properties", {}).get("txId")
+                if tx_id and existing.get("id"):
+                    entity_ids[tx_id] = str(existing["id"])
+            print(f"[elliptic_loader] Skipped entity load; fetched {len(entity_ids)} existing Transaction entities.")
+        else:
+            results = client.send_entities(entities())
+            summary.add_results(results)
+            for tx_id, result in zip(submitted_ids, results):
+                if result.get("status") in {"created", "already_present"} and result.get("id"):
+                    entity_ids[tx_id] = str(result["id"])
 
         def relationships() -> Iterable[dict[str, object]]:
             with edges_path.open(newline="", encoding="utf-8-sig") as source:
@@ -159,9 +171,12 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--max-workers", type=int, default=1, help="concurrent bulk-request workers (default: sequential)")
     parser.add_argument("--timeout", type=float, default=30.0, help="per-request HTTP timeout in seconds (default: 30)")
+    parser.add_argument("--skip-entities", action="store_true",
+                         help="skip loading entities; fetch existing Transaction entities instead (use when they're already fully loaded)")
     args = parser.parse_args()
     load(args.nodes, args.edges, args.classes,
-         ApiClient(args.api_url, args.api_key, args.batch_size, timeout=args.timeout, max_workers=args.max_workers))
+         ApiClient(args.api_url, args.api_key, args.batch_size, timeout=args.timeout, max_workers=args.max_workers),
+         skip_entities=args.skip_entities)
 
 
 if __name__ == "__main__":

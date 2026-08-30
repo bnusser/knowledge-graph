@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -47,10 +47,15 @@ class ApiClient:
         self._thread_local = threading.local()
 
     def send_entities(self, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-        return self._send("/entities/bulk", records)
+        return self._send("/entities/bulk", records, preserve_order=True)
 
     def send_relationships(self, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-        return self._send("/relationships/bulk", records)
+        # Order doesn't need to be preserved here: nothing downstream indexes into relationship
+        # results positionally (unlike entities, which correlate submitted_ids[i]/results[i] to
+        # build an id map). Draining by completion order instead of submission order avoids
+        # head-of-line blocking — one slow/unlucky batch no longer stalls all progress reporting
+        # while later, faster batches have already finished.
+        return self._send("/relationships/bulk", records, preserve_order=False)
 
     def ensure_entity_type(self, definition: dict[str, Any]) -> None:
         self._ensure_type("/entity-types", definition)
@@ -83,10 +88,10 @@ class ApiClient:
         except (requests.RequestException, ValueError) as error:
             raise ApiClientError(str(error)) from error
 
-    def _send(self, path: str, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _send(self, path: str, records: Iterable[dict[str, Any]], preserve_order: bool = True) -> list[dict[str, Any]]:
         if self.max_workers == 1:
             return self._send_sequential(path, records)
-        return self._send_concurrent(path, records)
+        return self._send_concurrent(path, records, preserve_order)
 
     def _log_progress(self, path: str, batch_len: int, batch_seconds: float, processed: int, start_time: float) -> None:
         if not self.progress:
@@ -120,46 +125,76 @@ class ApiClient:
             self._log_progress(path, len(batch), time.monotonic() - batch_start, processed, start_time)
         return results
 
-    def _send_concurrent(self, path: str, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Dispatch batches to a thread pool while preserving submission order in the result.
+    def _send_concurrent(
+        self, path: str, records: Iterable[dict[str, Any]], preserve_order: bool = True
+    ) -> list[dict[str, Any]]:
+        """Dispatch batches to a thread pool, keeping at most ``max_workers * 2`` in flight at
+        once (a bounded sliding window, not "submit everything immediately") so memory stays
+        bounded for very large files (FR-004).
 
-        Keeps at most ``max_workers * 2`` batches in flight at once (a bounded sliding window,
-        not "submit everything immediately") so memory stays bounded for very large files
-        (FR-004), and drains completed futures strictly in submission order so each result's
-        index still lines up with the record it belongs to.
+        When ``preserve_order`` is True, drains strictly in submission order so each result's
+        index lines up with the record it belongs to — but this means one slow/unlucky batch
+        blocks all progress reporting even if later batches finish first (head-of-line
+        blocking). When False, drains in completion order instead, avoiding that blocking; use
+        this only when the caller doesn't need positional correlation between input and result.
         """
         results: list[dict[str, Any]] = []
         processed = 0
         max_in_flight = self.max_workers * 2
         window: deque[tuple[Future, int]] = deque()
+        pending: set[Future] = set()
         start_time = time.monotonic()
 
-        def drain_one() -> None:
+        def handle_done(future: Future, batch_len: int) -> None:
             nonlocal processed
-            future, batch_len = window.popleft()
             try:
                 batch_results, batch_seconds = future.result()
                 results.extend(batch_results)
                 processed += batch_len
                 self._log_progress(path, batch_len, batch_seconds, processed, start_time)
             except ApiClientError as error:
-                for pending_future, _ in window:
+                for pending_future in pending:
                     pending_future.cancel()
+                window.clear()
                 raise ApiClientError(error.message, processed) from error
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+        def drain_one_in_order() -> None:
+            future, batch_len = window.popleft()
+            pending.discard(future)
+            handle_done(future, batch_len)
+
+        def drain_one_completed() -> None:
+            future = next(as_completed(pending))
+            batch_len = next(length for f, length in list(window) if f is future)
+            window.remove((future, batch_len))
+            pending.discard(future)
+            handle_done(future, batch_len)
+
+        drain_one = drain_one_in_order if preserve_order else drain_one_completed
+
+        executor = ThreadPoolExecutor(max_workers=self.max_workers)
+        try:
             batch: list[dict[str, Any]] = []
             for record in records:
                 batch.append(record)
                 if len(batch) == self.batch_size:
-                    window.append((executor.submit(self._send_batch_threadsafe, path, batch), len(batch)))
+                    future = executor.submit(self._send_batch_threadsafe, path, batch)
+                    window.append((future, len(batch)))
+                    pending.add(future)
                     batch = []
                     if len(window) >= max_in_flight:
                         drain_one()
             if batch:
-                window.append((executor.submit(self._send_batch_threadsafe, path, batch), len(batch)))
+                future = executor.submit(self._send_batch_threadsafe, path, batch)
+                window.append((future, len(batch)))
+                pending.add(future)
             while window:
                 drain_one()
+        finally:
+            # wait=False: don't let an already-doomed batch keep the caller blocked for
+            # another full cycle on top of the timeout that already fired (cancel_futures
+            # only stops not-yet-started work; already-running requests finish on their own).
+            executor.shutdown(wait=False, cancel_futures=True)
         return results
 
     def _get_thread_session(self) -> requests.Session:

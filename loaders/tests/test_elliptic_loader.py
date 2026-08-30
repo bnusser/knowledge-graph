@@ -4,15 +4,21 @@ import pytest
 
 
 class FakeClient:
-    def __init__(self):
+    def __init__(self, existing_entities=None):
         self.entity_batches = []
         self.relationship_batches = []
+        self.existing_entities = existing_entities or []
+        self.get_calls = []
 
     def ensure_entity_type(self, definition):
         self.entity_definition = definition
 
     def ensure_relationship_type(self, definition):
         self.relationship_definition = definition
+
+    def get(self, path):
+        self.get_calls.append(path)
+        return self.existing_entities
 
     def send_entities(self, records):
         batch = list(records)
@@ -75,4 +81,25 @@ def test_headerless_features_file_is_parsed_positionally(tmp_path):
     assert properties == {"txId": "tx-a", "timeStep": 1, "class": "licit", "dataset": "elliptic"}
     assert summary.created == 3
     assert summary.skipped == 0
+
+
+def test_skip_entities_fetches_existing_ids_instead_of_resubmitting(tmp_path):
+    nodes = tmp_path / "nodes.csv"
+    nodes.write_text("txId,time step\ntx-a,1\ntx-b,2\n", encoding="utf-8")
+    classes = tmp_path / "classes.csv"
+    classes.write_text("txId,class\ntx-a,licit\ntx-b,illicit\n", encoding="utf-8")
+    edges = tmp_path / "edges.csv"
+    edges.write_text("txId1,txId2\ntx-a,tx-b\n", encoding="utf-8")
+    client = FakeClient(existing_entities=[
+        {"id": "entity-a", "properties": {"txId": "tx-a"}},
+        {"id": "entity-b", "properties": {"txId": "tx-b"}},
+    ])
+
+    summary = load(nodes, edges, classes, client, skip_entities=True)
+
+    assert client.get_calls == ["/entities?type=Transaction"]
+    assert client.entity_batches == []  # never re-submitted
+    assert client.relationship_batches[0][0]["sourceEntityId"] == "entity-a"
+    assert client.relationship_batches[0][0]["targetEntityId"] == "entity-b"
+    assert summary.created == 1  # only the relationship
 
