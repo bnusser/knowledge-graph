@@ -107,10 +107,23 @@ uv run python -m kg_loaders.elliptic_loader `
   --edges path\to\elliptic_txs_edgelist.csv `
   --classes path\to\elliptic_txs_classes.csv `
   --api-url http://127.0.0.1:8080 `
-  --api-key local-dev-key
+  --api-key local-dev-key `
+  --max-workers 8 `
+  --timeout 60  
 ```
 
-PaySim loads the same way via `kg_loaders.paysim_loader` (add `--limit N` for a partial load).
+To load the included PaySim dataset, run the following from `loaders/`:
+
+```powershell
+uv run python -m kg_loaders.paysim_loader `
+  --input ..\data\paysim1\PS_20174392719_1491204439457_log.csv `
+  --api-url http://127.0.0.1:8080 `
+  --api-key local-dev-key `
+  --max-workers 8 `
+  --timeout 60
+```
+
+Add `--limit N` to load only the first `N` rows, which is useful for a quick validation run.
 Full details in [specs/002-elliptic-paysim-loaders/quickstart.md](specs/002-elliptic-paysim-loaders/quickstart.md).
 
 ## Test

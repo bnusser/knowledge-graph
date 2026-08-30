@@ -60,3 +60,55 @@ def test_malformed_row_is_skipped(tmp_path):
 
     assert summary.skipped == 1
     assert "malformed PaySim row" in summary.skip_reasons[0]
+
+
+def test_standard_paysim_csv_sample_is_compatible(tmp_path):
+    source = tmp_path / "paysim.csv"
+    source.write_text(
+        "step,type,amount,nameOrig,oldbalanceOrg,newbalanceOrig,nameDest,oldbalanceDest,newbalanceDest,isFraud,isFlaggedFraud\n"
+        "1,PAYMENT,9839.64,C1231006815,170136.0,160296.36,M1979787155,0.0,0.0,0,0\n"
+        "1,PAYMENT,1864.28,C1666544295,21249.0,19384.72,M2044282225,0.0,0.0,0,0\n"
+        "1,TRANSFER,181.0,C1305486145,181.0,0.0,C553264065,0.0,0.0,1,0\n",
+        encoding="utf-8",
+    )
+    client = FakeClient()
+
+    summary = load(source, client)
+
+    accounts = client.entity_batches[0]
+    relationships = client.relationship_batches[0]
+    entity_dataset_property = next(
+        prop for prop in client.entity_definition["properties"] if prop["name"] == "dataset"
+    )
+    relationship_dataset_property = next(
+        prop for prop in client.relationship_definition["properties"] if prop["name"] == "dataset"
+    )
+    assert entity_dataset_property == {"name": "dataset", "dataType": "STRING", "required": True}
+    assert relationship_dataset_property == {"name": "dataset", "dataType": "STRING", "required": True}
+    assert [account["properties"]["name"] for account in accounts] == [
+        "C1231006815",
+        "M1979787155",
+        "C1666544295",
+        "M2044282225",
+        "C1305486145",
+        "C553264065",
+    ]
+    assert {account["properties"]["dataset"] for account in accounts} == {"paysim"}
+    assert len(relationships) == 3
+    assert {relationship["properties"]["dataset"] for relationship in relationships} == {"paysim"}
+    assert relationships[0]["properties"] == {
+        "step": 1,
+        "type": "PAYMENT",
+        "amount": 9839.64,
+        "oldBalanceOrig": 170136.0,
+        "newBalanceOrig": 160296.36,
+        "oldBalanceDest": 0.0,
+        "newBalanceDest": 0.0,
+        "isFraud": False,
+        "isFlaggedFraud": False,
+        "dataset": "paysim",
+    }
+    assert relationships[2]["properties"]["isFraud"] is True
+    assert relationships[2]["properties"]["isFlaggedFraud"] is False
+    assert summary.created == 9
+    assert summary.skipped == 0
