@@ -51,6 +51,10 @@ components:
     BulkEntityCreateRequest:
       type: object
       required: [items]
+      example:
+        items:
+          - type: Account
+            properties: {name: C1231006815, dataset: paysim}
       properties:
         items:
           type: array
@@ -60,6 +64,12 @@ components:
     BulkRelationshipCreateRequest:
       type: object
       required: [items]
+      example:
+        items:
+          - type: TRANSACTION
+            sourceEntityId: account-source-id
+            targetEntityId: account-target-id
+            properties: {step: 1, transactionType: TRANSFER, amount: 181.0, dataset: paysim}
       properties:
         items:
           type: array

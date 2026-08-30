@@ -131,15 +131,14 @@ class EntityServiceTest {
         assertThat(updated.getProperties()).containsEntry("name", "Ada").containsEntry("age", 31);
     }
 
-        @Test
-        void createBulkReturnsPerItemOutcomes() {
+    @Test
+    void createBulkReturnsPerItemOutcomesAndDeduplicatesWithinRequest() {
         when(entityTypeService.getByName("Person")).thenReturn(personType);
-        when(entityRepository.findByTypeAndIdentifyingValue("Person", "Ada"))
-            .thenReturn(Optional.empty())
-            .thenReturn(Optional.of(new Entity("existing-id", "Person", Map.of("name", "Ada"))));
+        when(entityRepository.findAllByTypeAndIdentifyingValueIn(eq("Person"), anyList()))
+                .thenReturn(List.of());
         doNothing().when(entityRepository).createBatch(anyList());
         doThrow(new IllegalArgumentException("invalid item"))
-            .when(schemaValidator).validateEntityProperties(eq(personType), eq(Map.of("name", "Invalid")));
+                .when(schemaValidator).validateEntityProperties(eq(personType), eq(Map.of("name", "Invalid")));
 
         var result = entityService.createBulk(List.of(
             new EntityCreateRequest("Person", Map.of("name", "Ada")),
@@ -147,9 +146,32 @@ class EntityServiceTest {
             new EntityCreateRequest("Person", Map.of("name", "Invalid"))));
 
         assertThat(result.results()).extracting("status")
-            .containsExactly("created", "already_present", "rejected");
+                .containsExactly("created", "already_present", "rejected");
         assertThat(result.results().get(0).index()).isZero();
-        assertThat(result.results().get(1).id()).isEqualTo("existing-id");
+        assertThat(result.results().get(1).id()).isEqualTo(result.results().get(0).id());
         assertThat(result.results().get(2).error()).isEqualTo("invalid item");
-        }
+        verify(entityTypeService).getByName("Person");
+        verify(entityRepository).findAllByTypeAndIdentifyingValueIn(eq("Person"), anyList());
+        verify(entityRepository).createBatch(argThat(rows -> rows.size() == 1));
+    }
+
+    @Test
+    void createBulkFallsBackToIndividualWritesToIsolateDatabaseFailure() {
+        when(entityTypeService.getByName("Person")).thenReturn(personType);
+        when(entityRepository.findAllByTypeAndIdentifyingValueIn(eq("Person"), anyList()))
+                .thenReturn(List.of());
+        doThrow(new IllegalStateException("batch failed"))
+                .doNothing()
+                .doThrow(new IllegalStateException("bad row"))
+                .when(entityRepository).createBatch(anyList());
+        when(entityRepository.findByTypeAndIdentifyingValue("Person", "Grace"))
+                .thenReturn(Optional.empty());
+
+        var result = entityService.createBulk(List.of(
+                new EntityCreateRequest("Person", Map.of("name", "Ada")),
+                new EntityCreateRequest("Person", Map.of("name", "Grace"))));
+
+        assertThat(result.results()).extracting("status").containsExactly("created", "rejected");
+        assertThat(result.results().get(1).error()).isEqualTo("bad row");
+    }
 }

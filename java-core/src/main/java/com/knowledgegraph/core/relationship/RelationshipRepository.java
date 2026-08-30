@@ -31,8 +31,9 @@ public class RelationshipRepository {
         String cypher =
                 "MATCH (source:Entity {id: $sourceId}) "
                         + "MATCH (target:Entity {id: $targetId}) "
-                        + "CREATE (source)-[r:RELATES {id: $id, type: $type}]->(target) "
+                        + "CREATE (source)-[r:RELATES]->(target) "
                         + "SET r += $properties "
+                        + "SET r.id = $id, r.type = $type "
                         + "RETURN r, source.id AS sourceId, target.id AS targetId";
         return neo4jClient
                 .query(cypher)
@@ -63,8 +64,9 @@ public class RelationshipRepository {
         String cypher = "UNWIND $rows AS row "
                 + "MATCH (source:Entity {id: row.sourceId}) "
                 + "MATCH (target:Entity {id: row.targetId}) "
-                + "CREATE (source)-[r:RELATES {id: row.id, type: row.type}]->(target) "
+                + "CREATE (source)-[r:RELATES]->(target) "
                 + "SET r += row.properties "
+                + "SET r.id = row.id, r.type = row.type "
                 + "RETURN r, source.id AS sourceId, target.id AS targetId";
         List<Relationship> created = neo4jClient
                 .query(cypher)
@@ -115,7 +117,9 @@ public class RelationshipRepository {
 
     public Optional<Relationship> updateProperties(String id, Map<String, Object> properties) {
         String cypher = "MATCH (source)-[r:RELATES {id: $id}]->(target) "
+                + "WITH source, r, target, r.id AS coreId, r.type AS coreType "
                 + "SET r += $properties "
+                + "SET r.id = coreId, r.type = coreType "
                 + "RETURN r, source.id AS sourceId, target.id AS targetId";
         return neo4jClient
                 .query(cypher)

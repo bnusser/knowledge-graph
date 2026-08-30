@@ -11,16 +11,15 @@ import com.knowledgegraph.core.schema.SchemaValidator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
 public class RelationshipService {
-
-    /** See EntityService.WRITE_SUB_BATCH_SIZE for rationale. */
-    private static final int WRITE_SUB_BATCH_SIZE = 50;
 
     private final RelationshipRepository relationshipRepository;
     private final RelationshipTypeService relationshipTypeService;
@@ -50,13 +49,21 @@ public class RelationshipService {
     public BulkResult createBulk(List<RelationshipCreateRequest> requests) {
         List<BulkItemResult> results = new ArrayList<>(Collections.nCopies(requests.size(), null));
         List<PreparedRelationship> toPersist = new ArrayList<>();
+        Map<String, RelationshipTypeDefinition> typeDefinitions = new HashMap<>();
+        Set<String> entityIds = new HashSet<>();
+        for (RelationshipCreateRequest request : requests) {
+            entityIds.add(request.sourceEntityId());
+            entityIds.add(request.targetEntityId());
+        }
+        Map<String, Entity> entities = entityService.getByIds(entityIds);
 
         for (int index = 0; index < requests.size(); index++) {
             RelationshipCreateRequest request = requests.get(index);
             try {
-                RelationshipTypeDefinition typeDefinition = relationshipTypeService.getByName(request.type()); // 404
-                Entity source = entityService.getById(request.sourceEntityId()); // 404
-                Entity target = entityService.getById(request.targetEntityId()); // 404
+                RelationshipTypeDefinition typeDefinition = typeDefinitions.computeIfAbsent(
+                        request.type(), relationshipTypeService::getByName);
+                Entity source = requireEntity(entities, request.sourceEntityId());
+                Entity target = requireEntity(entities, request.targetEntityId());
                 schemaValidator.validateRelationship(typeDefinition, source.getType(), target.getType(), request.properties()); // 422
                 String id = UUID.randomUUID().toString();
                 Map<String, Object> row = new HashMap<>();
@@ -65,33 +72,62 @@ public class RelationshipService {
                 row.put("sourceId", request.sourceEntityId());
                 row.put("targetId", request.targetEntityId());
                 row.put("properties", request.properties());
-                toPersist.add(new PreparedRelationship(index, row));
+                toPersist.add(new PreparedRelationship(index, id, row));
             } catch (RuntimeException exception) {
                 results.set(index, BulkItemResult.rejected(index, errorMessage(exception)));
             }
         }
 
-        for (int start = 0; start < toPersist.size(); start += WRITE_SUB_BATCH_SIZE) {
-            List<PreparedRelationship> subBatch =
-                    toPersist.subList(start, Math.min(start + WRITE_SUB_BATCH_SIZE, toPersist.size()));
+        if (!toPersist.isEmpty()) {
             try {
-                List<Map<String, Object>> rows = subBatch.stream().map(PreparedRelationship::row).toList();
-                List<Relationship> created = relationshipRepository.createBatch(rows); // one transaction (FR-012)
-                for (int i = 0; i < subBatch.size(); i++) {
-                    PreparedRelationship prepared = subBatch.get(i);
-                    results.set(prepared.index(), BulkItemResult.created(prepared.index(), created.get(i).getId()));
+                List<Relationship> created = relationshipRepository.createBatch(
+                        toPersist.stream().map(PreparedRelationship::row).toList());
+                Map<String, Relationship> createdById = new HashMap<>();
+                created.forEach(relationship -> createdById.put(relationship.getId(), relationship));
+                for (PreparedRelationship prepared : toPersist) {
+                    Relationship relationship = createdById.get(prepared.id());
+                    if (relationship == null) {
+                        throw new IllegalStateException("Bulk relationship write omitted " + prepared.id());
+                    }
+                    results.set(
+                            prepared.index(),
+                            BulkItemResult.created(prepared.index(), relationship.getId()));
                 }
             } catch (RuntimeException exception) {
-                String message = errorMessage(exception);
-                for (PreparedRelationship prepared : subBatch) {
-                    results.set(prepared.index(), BulkItemResult.rejected(prepared.index(), message));
-                }
+                persistRelationshipsIndividually(toPersist, results);
             }
         }
         return new BulkResult(results);
     }
 
-    private record PreparedRelationship(int index, Map<String, Object> row) {}
+    private Entity requireEntity(Map<String, Entity> entities, String id) {
+        Entity entity = entities.get(id);
+        if (entity == null) {
+            throw new NotFoundException("Unknown entity '" + id + "'");
+        }
+        return entity;
+    }
+
+    private void persistRelationshipsIndividually(
+            List<PreparedRelationship> relationships, List<BulkItemResult> results) {
+        for (PreparedRelationship prepared : relationships) {
+            try {
+                List<Relationship> created = relationshipRepository.createBatch(List.of(prepared.row()));
+                if (created.isEmpty() || created.getFirst() == null) {
+                    throw new IllegalStateException("Relationship write returned no result");
+                }
+                results.set(
+                        prepared.index(),
+                        BulkItemResult.created(prepared.index(), created.getFirst().getId()));
+            } catch (RuntimeException exception) {
+                results.set(
+                        prepared.index(),
+                        BulkItemResult.rejected(prepared.index(), errorMessage(exception)));
+            }
+        }
+    }
+
+    private record PreparedRelationship(int index, String id, Map<String, Object> row) {}
 
     public Relationship getById(String id) {
         return relationshipRepository

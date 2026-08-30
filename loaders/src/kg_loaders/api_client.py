@@ -7,7 +7,7 @@ import time
 from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import requests
 
@@ -46,16 +46,38 @@ class ApiClient:
         self._api_key = api_key
         self._thread_local = threading.local()
 
-    def send_entities(self, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-        return self._send("/entities/bulk", records, preserve_order=True)
+    def send_entities(
+        self,
+        records: Iterable[dict[str, Any]],
+        result_handler: Callable[[list[dict[str, Any]], list[dict[str, Any]]], None] | None = None,
+        collect_results: bool = True,
+    ) -> list[dict[str, Any]]:
+        return self._send(
+            "/entities/bulk",
+            records,
+            preserve_order=True,
+            result_handler=result_handler,
+            collect_results=collect_results,
+        )
 
-    def send_relationships(self, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    def send_relationships(
+        self,
+        records: Iterable[dict[str, Any]],
+        result_handler: Callable[[list[dict[str, Any]], list[dict[str, Any]]], None] | None = None,
+        collect_results: bool = True,
+    ) -> list[dict[str, Any]]:
         # Order doesn't need to be preserved here: nothing downstream indexes into relationship
         # results positionally (unlike entities, which correlate submitted_ids[i]/results[i] to
         # build an id map). Draining by completion order instead of submission order avoids
         # head-of-line blocking — one slow/unlucky batch no longer stalls all progress reporting
         # while later, faster batches have already finished.
-        return self._send("/relationships/bulk", records, preserve_order=False)
+        return self._send(
+            "/relationships/bulk",
+            records,
+            preserve_order=False,
+            result_handler=result_handler,
+            collect_results=collect_results,
+        )
 
     def ensure_entity_type(self, definition: dict[str, Any]) -> None:
         self._ensure_type("/entity-types", definition)
@@ -88,13 +110,24 @@ class ApiClient:
         except (requests.RequestException, ValueError) as error:
             raise ApiClientError(str(error)) from error
 
-    def _send(self, path: str, records: Iterable[dict[str, Any]], preserve_order: bool = True) -> list[dict[str, Any]]:
+    def _send(
+        self,
+        path: str,
+        records: Iterable[dict[str, Any]],
+        preserve_order: bool = True,
+        result_handler: Callable[[list[dict[str, Any]], list[dict[str, Any]]], None] | None = None,
+        collect_results: bool = True,
+    ) -> list[dict[str, Any]]:
         if self.max_workers == 1:
-            return self._send_sequential(path, records)
-        return self._send_concurrent(path, records, preserve_order)
+            return self._send_sequential(path, records, result_handler, collect_results)
+        return self._send_concurrent(path, records, preserve_order, result_handler, collect_results)
 
     def _log_progress(self, path: str, batch_len: int, batch_seconds: float, processed: int, start_time: float) -> None:
         if not self.progress:
+            return
+        # A full PaySim run sends tens of thousands of batches. Report the first batch and
+        # then every 50 batches so console I/O does not become part of the scalability cost.
+        if processed != batch_len and processed % (self.batch_size * 50) != 0:
             return
         overall_seconds = time.monotonic() - start_time
         overall_rate = processed / overall_seconds if overall_seconds > 0 else 0.0
@@ -105,7 +138,13 @@ class ApiClient:
             flush=True,
         )
 
-    def _send_sequential(self, path: str, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _send_sequential(
+        self,
+        path: str,
+        records: Iterable[dict[str, Any]],
+        result_handler: Callable[[list[dict[str, Any]], list[dict[str, Any]]], None] | None,
+        collect_results: bool,
+    ) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         batch: list[dict[str, Any]] = []
         processed = 0
@@ -114,19 +153,32 @@ class ApiClient:
             batch.append(record)
             if len(batch) == self.batch_size:
                 batch_start = time.monotonic()
-                results.extend(self._send_batch(path, batch, processed))
+                batch_results = self._send_batch(path, batch, processed)
+                if result_handler:
+                    result_handler(batch, batch_results)
+                if collect_results:
+                    results.extend(batch_results)
                 processed += len(batch)
                 self._log_progress(path, len(batch), time.monotonic() - batch_start, processed, start_time)
                 batch = []
         if batch:
             batch_start = time.monotonic()
-            results.extend(self._send_batch(path, batch, processed))
+            batch_results = self._send_batch(path, batch, processed)
+            if result_handler:
+                result_handler(batch, batch_results)
+            if collect_results:
+                results.extend(batch_results)
             processed += len(batch)
             self._log_progress(path, len(batch), time.monotonic() - batch_start, processed, start_time)
         return results
 
     def _send_concurrent(
-        self, path: str, records: Iterable[dict[str, Any]], preserve_order: bool = True
+        self,
+        path: str,
+        records: Iterable[dict[str, Any]],
+        preserve_order: bool,
+        result_handler: Callable[[list[dict[str, Any]], list[dict[str, Any]]], None] | None,
+        collect_results: bool,
     ) -> list[dict[str, Any]]:
         """Dispatch batches to a thread pool, keeping at most ``max_workers * 2`` in flight at
         once (a bounded sliding window, not "submit everything immediately") so memory stays
@@ -141,15 +193,19 @@ class ApiClient:
         results: list[dict[str, Any]] = []
         processed = 0
         max_in_flight = self.max_workers * 2
-        window: deque[tuple[Future, int]] = deque()
+        window: deque[tuple[Future, list[dict[str, Any]]]] = deque()
         pending: set[Future] = set()
         start_time = time.monotonic()
 
-        def handle_done(future: Future, batch_len: int) -> None:
+        def handle_done(future: Future, batch_records: list[dict[str, Any]]) -> None:
             nonlocal processed
             try:
                 batch_results, batch_seconds = future.result()
-                results.extend(batch_results)
+                if result_handler:
+                    result_handler(batch_records, batch_results)
+                if collect_results:
+                    results.extend(batch_results)
+                batch_len = len(batch_records)
                 processed += batch_len
                 self._log_progress(path, batch_len, batch_seconds, processed, start_time)
             except ApiClientError as error:
@@ -159,16 +215,16 @@ class ApiClient:
                 raise ApiClientError(error.message, processed) from error
 
         def drain_one_in_order() -> None:
-            future, batch_len = window.popleft()
+            future, batch_records = window.popleft()
             pending.discard(future)
-            handle_done(future, batch_len)
+            handle_done(future, batch_records)
 
         def drain_one_completed() -> None:
             future = next(as_completed(pending))
-            batch_len = next(length for f, length in list(window) if f is future)
-            window.remove((future, batch_len))
+            batch_records = next(records for f, records in list(window) if f is future)
+            window.remove((future, batch_records))
             pending.discard(future)
-            handle_done(future, batch_len)
+            handle_done(future, batch_records)
 
         drain_one = drain_one_in_order if preserve_order else drain_one_completed
 
@@ -179,14 +235,14 @@ class ApiClient:
                 batch.append(record)
                 if len(batch) == self.batch_size:
                     future = executor.submit(self._send_batch_threadsafe, path, batch)
-                    window.append((future, len(batch)))
+                    window.append((future, batch))
                     pending.add(future)
                     batch = []
                     if len(window) >= max_in_flight:
                         drain_one()
             if batch:
                 future = executor.submit(self._send_batch_threadsafe, path, batch)
-                window.append((future, len(batch)))
+                window.append((future, batch))
                 pending.add(future)
             while window:
                 drain_one()

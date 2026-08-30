@@ -13,5 +13,10 @@
     </root>
 
     <logger name="com.knowledgegraph.core" level="DEBUG"/>
+    <!-- Spring Data's generated mapping queries use Neo4j's deprecated id() projection.
+         At bulk scale Neo4j emits the same warning for every request, producing millions of
+         log lines. The application queries use stable domain IDs, so suppress only this
+         repetitive framework-generated warning until Spring Data changes its projection. -->
+    <logger name="org.springframework.data.neo4j.cypher.deprecation" level="ERROR"/>
 </configuration>
 

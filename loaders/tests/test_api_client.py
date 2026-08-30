@@ -119,3 +119,49 @@ def test_relationships_drain_in_completion_order_not_blocked_by_slow_first_batch
 
     assert {r["id"] for r in results} == {"slow", "fast-1", "fast-2"}
     assert elapsed < 0.6  # well under 2x the slow batch's own delay; no compounding wait
+
+
+@responses.activate
+def test_results_can_be_consumed_per_batch_without_being_retained():
+    def callback(request):
+        items = loads(request.body)["items"]
+        results = [
+            {"index": index, "status": "created", "id": item["marker"]}
+            for index, item in enumerate(items)
+        ]
+        return (200, {}, dumps({"results": results}))
+
+    responses.add_callback(
+        responses.POST,
+        "http://core/entities/bulk",
+        callback=callback,
+        content_type="application/json",
+    )
+    client = ApiClient("http://core", "secret", batch_size=2)
+    consumed = []
+
+    results = client.send_entities(
+        ({"type": "Account", "marker": f"m{index}"} for index in range(5)),
+        result_handler=lambda records, batch_results: consumed.extend(
+            (record["marker"], result["id"])
+            for record, result in zip(records, batch_results)
+        ),
+        collect_results=False,
+    )
+
+    assert results == []
+    assert consumed == [(f"m{index}", f"m{index}") for index in range(5)]
+
+
+def test_progress_output_is_throttled_for_full_scale_runs(capsys):
+    client = ApiClient("http://core", "secret", batch_size=500)
+    start = time.monotonic() - 1
+
+    client._log_progress("/entities/bulk", 500, 0.1, 500, start)
+    client._log_progress("/entities/bulk", 500, 0.1, 1_000, start)
+    client._log_progress("/entities/bulk", 500, 0.1, 25_000, start)
+
+    output_lines = capsys.readouterr().out.splitlines()
+    assert len(output_lines) == 2
+    assert "total processed=500" in output_lines[0]
+    assert "total processed=25000" in output_lines[1]

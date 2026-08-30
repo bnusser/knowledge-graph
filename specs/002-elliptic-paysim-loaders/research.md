@@ -11,14 +11,20 @@ natural fit for this kind of ETL tooling.
 loaders decoupled from the core's build/release cycle and because Python is simply less
 verbose for this kind of one-off file-parsing tool.
 
-## Decision: HTTP client = `requests`
+## Decision: HTTP client = `requests` with bounded worker concurrency
 
-**Rationale**: Batches are sent sequentially (no concurrency requirement was identified),
-so a simple synchronous client is sufficient. `requests` is the most widely understood choice
-and is trivial to mock in tests via the `responses` library.
+**Rationale**: `requests` remains simple and readily testable, while `--max-workers` permits
+parallel batch submission when the local API and database can benefit from it. The client
+keeps at most `max_workers * 2` batches in flight, uses one Session per worker, and consumes
+completed results incrementally. Entity batches are drained in submission order because the
+loader must correlate each result to its account; relationship batches may drain in
+completion order. If a request fails, queued work is cancelled and the error reports only
+the count from batches whose results were consumed successfully.
 
-**Alternatives considered**: `httpx` — offers async support, which isn't needed since this
-feature doesn't require concurrent batch submission; adds complexity without benefit here.
+**Alternatives considered**: Sequential-only `requests` remains available with
+`--max-workers 1`, but is too slow for full PaySim validation. An async `httpx` client was
+rejected because a bounded thread pool provides the needed throughput without a second
+concurrency model.
 
 ## Decision: Bulk endpoints = `POST /entities/bulk` and `POST /relationships/bulk`, added to the existing controllers
 
@@ -45,15 +51,18 @@ network conditions and isn't worth hard-coding.
 large request bodies and makes partial-failure reporting (FR-012) coarser (harder to isolate
 which of millions of records failed).
 
-## Decision: Partial-batch semantics = one Neo4j transaction per item within a batch
+## Decision: Bulk transaction first, isolated fallback on write failure
 
-**Rationale**: Directly satisfies FR-012 — a single invalid record can't roll back or block
-the rest of the batch, since each item's validation and persistence happens independently
-using the same logic (and same exceptions → status mapping) as today's single-record
-endpoints.
+**Rationale**: Requests are validated item-by-item before persistence. Valid entities are
+looked up by type in bulk and valid records are written in one parameterized batch query.
+Valid relationships similarly resolve all referenced entities in one lookup and use one
+batch write. If a database-level batch write fails, the service retries those prepared items
+individually so one conflicting or rejected item cannot discard the rest (FR-012). This
+keeps the normal path fast while preserving a result for every submitted item.
 
-**Alternatives considered**: One transaction for the whole batch — rejected because a single
-bad record would roll back every valid record in that batch, violating FR-012.
+**Alternatives considered**: One Neo4j transaction per item in every request preserves
+isolation but produces hundreds of database round-trips for each HTTP batch and does not
+meet full-scale throughput needs.
 
 ## Decision: Elliptic schema mapping keeps only classification-relevant fields
 
@@ -70,18 +79,24 @@ validated, undermining Constitution Principle V (explainability).
 ## Decision: PaySim schema mapping
 
 - Entity type `Account`: identifying property `name` (the raw `nameOrig`/`nameDest` value).
-- Relationship type `TRANSACTION`: properties `step`, `type`, `amount`, `oldBalanceOrig`,
+- Relationship type `TRANSACTION`: properties `step`, `transactionType` (mapped from the CSV
+  column `type`), `amount`, `oldBalanceOrig`,
   `newBalanceOrig`, `oldBalanceDest`, `newBalanceDest`, `isFraud`, `isFlaggedFraud` — a
   direct, low-friction mapping of PaySim's own columns.
 
-**Rationale**: PaySim's columns already map cleanly onto the existing schema model; no
-transformation beyond type coercion (e.g., string "1"/"0" → boolean) is needed.
+**Rationale**: PaySim's columns map cleanly onto the existing schema model. The CSV `type`
+column is renamed to `transactionType` because `type` is reserved for the core relationship
+discriminator; other transformations are type coercions (e.g., string "1"/"0" → boolean).
 
-## Decision: Duplicate accounts handled by the bulk endpoint's existing semantics, not client-side
+## Decision: PaySim account identity is indexed in a temporary SQLite database
 
-**Rationale**: FR-007 already requires the (bulk) entity endpoint to treat an existing entity
-as already-present rather than an error. The loader can therefore submit every account
-encountered per batch without pre-checking for duplicates itself, keeping the loader simple.
+**Rationale**: FR-007 still makes the server authoritative for existing-entity outcomes, but
+the relationship phase needs every account's server ID. A full PaySim file contains
+9,073,900 distinct names, so retaining names, results, and IDs in Python dictionaries is not
+bounded-memory. The loader makes a streamed first pass into a temporary SQLite unique index,
+submits each distinct account once, stores returned IDs on disk, then resolves relationship
+endpoints in batch-sized windows. The temporary database is deleted after the run.
 
-**Alternatives considered**: Client-side deduplication (loader tracks seen account names in
-memory) — rejected as unnecessary extra state; the server already handles it correctly.
+**Alternatives considered**: Submitting every repeated account avoids an index but adds many
+unnecessary records and still requires an in-memory ID map. A global Python `set`/`dict` was
+rejected because memory grows with the dataset.

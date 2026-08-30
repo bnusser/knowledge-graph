@@ -148,6 +148,9 @@ known content of that sample file.
 - **FR-012**: The bulk-import endpoint MUST process every valid record in a batch even when
   other records in the same batch are invalid, and MUST report the outcome (created/
   already-present/rejected-with-reason) for each record individually.
+- **FR-013**: Every entity and relationship created by these loaders MUST include a required
+  `dataset` property (`elliptic` or `paysim`) so records remain attributable when both
+  datasets share the same graph.
 
 ### Key Entities
 
@@ -205,6 +208,8 @@ known content of that sample file.
 - Default row-count limit, batch size, and file locations are configuration details decided
   during planning, not fixed here; a "load everything" option is always available alongside
   any limit.
+- The canonical PaySim file contains 6,362,620 transaction rows and 9,073,900 distinct
+  account names across `nameOrig` and `nameDest`; these are the expected full-load counts.
 - These loaders are developer/demo tooling, not a production data-ingestion pipeline; they
   are not expected to support scheduled/recurring imports, incremental updates, or rollback of
   a partial load.

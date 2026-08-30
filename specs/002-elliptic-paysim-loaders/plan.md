@@ -23,8 +23,8 @@ the existing `java-core` service (feature 001)
 management, `pytest` + `responses` for tests. Bulk endpoints: no new dependencies — extend
 `java-core`'s existing Spring Boot/Spring Data Neo4j stack.
 
-**Storage**: Neo4j 5.x — the same instance and schema model as feature 001; no new storage
-technology.
+**Storage**: Neo4j 5.x for graph data. The PaySim CLI also uses an ephemeral local SQLite
+index for account-name deduplication and ID resolution; it is deleted when the run ends.
 
 **Testing**: `pytest` (loaders, with the target API mocked via `responses`) + JUnit5/Mockito
 and an extended Testcontainers integration test (bulk endpoints, `java-core`)
@@ -36,18 +36,18 @@ deployment as feature 001)
 **Project Type**: CLI tooling (new `loaders/` project) + REST API extension (existing
 `java-core`)
 
-**Performance Goals**: A full PaySim load (~6.3M rows) completes using on the order of
-thousands of bulk HTTP requests (default batch size 500) rather than millions of individual
-requests (SC-007)
+**Performance Goals**: A full PaySim load (6,362,620 rows and 9,073,900 distinct accounts)
+completes using bulk HTTP requests (default batch size 500) rather than one request per
+record. Configurable bounded concurrency keeps at most `max_workers * 2` batches in flight.
 
 **Constraints**: Bulk endpoints MUST remain fully parameterized Cypher (Principle IV); a
 single invalid record in a batch MUST NOT prevent the rest of the batch from succeeding
 (FR-012); loaders MUST stream their source file rather than loading it fully into memory
 (FR-004); loaders authenticate with the same `X-API-Key` header feature 001 already requires
 
-**Scale/Scope**: Elliptic (~203K transaction entities / ~234K flow relationships); PaySim (up
-to ~6.3M transaction relationships, with a few hundred thousand distinct account entities
-derived from the `nameOrig`/`nameDest` columns)
+**Scale/Scope**: Elliptic (~203K transaction entities / ~234K flow relationships); PaySim
+(6,362,620 transaction relationships and 9,073,900 distinct account entities derived from
+the `nameOrig`/`nameDest` columns in the canonical file)
 
 ## Constitution Check
 
@@ -66,8 +66,8 @@ derived from the `nameOrig`/`nameDest` columns)
 - **IV. Secure-by-Default Graph Access (NON-NEGOTIABLE)** — PASS. `/entities/bulk` and
   `/relationships/bulk` both start with `/entities`/`/relationships`, so they're automatically
   covered by the existing `ApiKeyAuthFilter` path-prefix check — no filter changes needed. All
-  bulk Cypher access reuses the existing parameterized repository methods per item; no new
-  string-built Cypher is introduced.
+  bulk Cypher access uses parameterized repository queries for batch lookup and persistence;
+  no string-built Cypher is introduced.
 - **V. Interview-Grade Code Quality & Explainability** — PASS. Loaders follow PEP 8/ruff;
   Java additions follow the existing Spring conventions from feature 001.
 - **VI. North-Star Scope with MVP-First Delivery** — PASS. Explicitly bounded per the spec's
@@ -136,4 +136,3 @@ distinct concern.
 
 *No unjustified Constitution Check violations — the bulk-import logic stays in `java-core`
 per Principle I, so no Complexity Tracking entries are required.*
-

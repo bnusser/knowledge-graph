@@ -20,11 +20,13 @@ uv sync
 
 ```powershell
 uv run python -m kg_loaders.elliptic_loader `
-  --nodes path\to\elliptic_txs_features.csv `
-  --edges path\to\elliptic_txs_edgelist.csv `
-  --classes path\to\elliptic_txs_classes.csv `
+  --nodes ..\data\elliptic_bitcoin_dataset\elliptic_txs_features.csv `
+  --edges ..\data\elliptic_bitcoin_dataset\elliptic_txs_edgelist.csv `
+  --classes ..\data\elliptic_bitcoin_dataset\elliptic_txs_classes.csv `
   --api-url http://127.0.0.1:8080 `
-  --api-key local-dev-key
+  --api-key local-dev-key `
+  --max-workers 8 `
+  --timeout 60
 ```
 
 Expected: a `Transaction` entity type and `FLOWS_TO` relationship type are registered (if not
@@ -39,9 +41,11 @@ Load Summary: created=203769 already_present=0 skipped=0 elapsed=42.3s
 
 ```powershell
 uv run python -m kg_loaders.paysim_loader `
-  --input path\to\PS_20174392719_1491204439457_log.csv `
+  --input ..\data\paysim1\PS_20174392719_1491204439457_log.csv `
   --api-url http://127.0.0.1:8080 `
   --api-key local-dev-key `
+  --max-workers 8 `
+  --timeout 60 `
   --limit 10000
 ```
 
@@ -65,8 +69,16 @@ Load Summary: created=10000 already_present=312 skipped=0 elapsed=6.1s
 3. **Row-limit determinism** (FR-005): run the PaySim loader twice with `--limit 100` →
    both runs load the exact same 100 rows.
 4. **Full-scale run** (SC-006/SC-007): run the PaySim loader without `--limit` against the
-   full ~6.3M-row file and confirm it completes without an out-of-memory error, using on the
-   order of thousands (not millions) of HTTP requests.
+   canonical file. It contains 6,362,620 transaction rows and 9,073,900 distinct accounts.
+   With batch size 500, a fresh load makes exactly 18,148 entity bulk requests plus 12,726
+   relationship bulk requests (30,874 total), rather than millions. Confirm those graph
+   counts, required `dataset=paysim` properties, and completion without an out-of-memory
+   error. Account names and server IDs are held in a temporary disk-backed SQLite index.
+
+`--max-workers` bounds concurrency: at most twice that many request batches are held in
+flight. Use `1` for deterministic sequential troubleshooting; increase it only as far as the
+local API and Neo4j instance can sustain.
 
 Full request/response shapes are in [contracts/bulk-import.yaml](./contracts/bulk-import.yaml)
-and schema definitions in [data-model.md](./data-model.md).
+and schema definitions in [data-model.md](./data-model.md). Recorded automated and full-scale
+results are in [validation.md](./validation.md).

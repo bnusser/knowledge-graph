@@ -98,9 +98,18 @@ def load(
     nodes_path: Path, edges_path: Path, classes_path: Path, client: ApiClient, skip_entities: bool = False
 ) -> LoadSummary:
     summary = LoadSummary()
-    _ensure_schema(client)
-    _require_columns(classes_path, {"transaction id": ("txId", "txId1", "transactionId")})
+    # Validate every source before schema registration so a bad path or swapped file cannot
+    # mutate the target graph (spec edge case: missing/unreadable input is side-effect free).
+    next(iter(_iter_node_rows(nodes_path)), None)
+    _require_columns(
+        classes_path,
+        {
+            "transaction id": ("txId", "txId1", "transactionId"),
+            "class": ("class",),
+        },
+    )
     _require_columns(edges_path, {"source id": ("txId1", "source", "sourceId"), "target id": ("txId2", "target", "targetId")})
+    _ensure_schema(client)
     classes: dict[str, str] = {}
     with classes_path.open(newline="", encoding="utf-8-sig") as source:
         for row in csv.DictReader(source):

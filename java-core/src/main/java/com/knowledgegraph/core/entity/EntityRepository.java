@@ -16,6 +16,13 @@ public interface EntityRepository extends Neo4jRepository<Entity, String> {
     /** Duplicate detection (FR-014) via the flat, natively-indexable {@code identifyingValue} field. */
     Optional<Entity> findByTypeAndIdentifyingValue(String type, String identifyingValue);
 
+    @Query("MATCH (e:Entity) "
+            + "WHERE e.type = $type AND e.identifyingValue IN $identifyingValues "
+            + "RETURN e")
+    List<Entity> findAllByTypeAndIdentifyingValueIn(
+            @Param("type") String type,
+            @Param("identifyingValues") List<String> identifyingValues);
+
     /**
      * Creates many entities in a single UNWIND-based statement — one transaction/commit for the
      * whole batch rather than one per entity — since per-item commit overhead dominates bulk-load

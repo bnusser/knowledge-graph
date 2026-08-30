@@ -103,3 +103,34 @@ def test_skip_entities_fetches_existing_ids_instead_of_resubmitting(tmp_path):
     assert client.relationship_batches[0][0]["targetEntityId"] == "entity-b"
     assert summary.created == 1  # only the relationship
 
+
+def test_missing_input_is_rejected_before_schema_registration(tmp_path):
+    client = FakeClient()
+
+    with pytest.raises(FileNotFoundError):
+        load(
+            tmp_path / "missing-nodes.csv",
+            tmp_path / "missing-edges.csv",
+            tmp_path / "missing-classes.csv",
+            client,
+        )
+
+    assert not hasattr(client, "entity_definition")
+    assert not hasattr(client, "relationship_definition")
+
+
+def test_invalid_class_header_is_rejected_before_schema_registration(tmp_path):
+    nodes = tmp_path / "nodes.csv"
+    nodes.write_text("tx-a,1,0.12\n", encoding="utf-8")
+    classes = tmp_path / "classes.csv"
+    classes.write_text("txId,label\ntx-a,licit\n", encoding="utf-8")
+    edges = tmp_path / "edges.csv"
+    edges.write_text("txId1,txId2\ntx-a,tx-a\n", encoding="utf-8")
+    client = FakeClient()
+
+    with pytest.raises(ValueError, match="class"):
+        load(nodes, edges, classes, client)
+
+    assert not hasattr(client, "entity_definition")
+    assert not hasattr(client, "relationship_definition")
+

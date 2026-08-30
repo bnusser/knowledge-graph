@@ -14,6 +14,7 @@ new bulk request/response DTOs on the Java side.
 | txId | STRING | yes (identifying) | Elliptic's original transaction id |
 | timeStep | INTEGER | yes | Elliptic's 1-49 time step |
 | class | STRING | yes | `licit`, `illicit`, or `unknown` |
+| dataset | STRING | yes | Constant `elliptic`; identifies the source dataset |
 
 **RelationshipTypeDefinition `FLOWS_TO`**
 
@@ -21,7 +22,7 @@ new bulk request/response DTOs on the Java side.
 |---|---|
 | allowedSourceTypes | `["Transaction"]` |
 | allowedTargetTypes | `["Transaction"]` |
-| properties | none |
+| properties | `dataset` (STRING, required; constant `elliptic`) |
 
 ## Schema definitions registered by the PaySim loader
 
@@ -30,6 +31,7 @@ new bulk request/response DTOs on the Java side.
 | Property | Type | Required | Notes |
 |---|---|---|---|
 | name | STRING | yes (identifying) | Raw `nameOrig`/`nameDest` value |
+| dataset | STRING | yes | Constant `paysim`; identifies the source dataset |
 
 **RelationshipTypeDefinition `TRANSACTION`**
 
@@ -37,7 +39,10 @@ new bulk request/response DTOs on the Java side.
 |---|---|
 | allowedSourceTypes | `["Account"]` |
 | allowedTargetTypes | `["Account"]` |
-| properties | `step` (INTEGER), `type` (STRING), `amount` (FLOAT), `oldBalanceOrig` (FLOAT), `newBalanceOrig` (FLOAT), `oldBalanceDest` (FLOAT), `newBalanceDest` (FLOAT), `isFraud` (BOOLEAN), `isFlaggedFraud` (BOOLEAN) |
+| properties | `step` (INTEGER), `transactionType` (STRING; source CSV column `type`), `amount` (FLOAT), `oldBalanceOrig` (FLOAT), `newBalanceOrig` (FLOAT), `oldBalanceDest` (FLOAT), `newBalanceDest` (FLOAT), `isFraud` (BOOLEAN), `isFlaggedFraud` (BOOLEAN), `dataset` (STRING; constant `paysim`) |
+
+`transactionType` deliberately avoids the reserved persistence property `type`, which stores
+the graph relationship discriminator (`TRANSACTION`).
 
 ## New Java-side DTOs (bulk endpoints)
 

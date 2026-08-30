@@ -19,6 +19,7 @@ import com.knowledgegraph.core.schema.SchemaValidator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -116,8 +117,9 @@ class RelationshipServiceTest {
     @Test
     void createBulkReturnsPerItemOutcomes() {
         when(relationshipTypeService.getByName("WORKS_AT")).thenReturn(worksAt);
-        when(entityService.getById("ada")).thenReturn(new Entity("ada", "Person", Map.of()));
-        when(entityService.getById("acme")).thenReturn(new Entity("acme", "Organization", Map.of()));
+        when(entityService.getByIds(Set.of("ada", "acme"))).thenReturn(Map.of(
+                "ada", new Entity("ada", "Person", Map.of()),
+                "acme", new Entity("acme", "Organization", Map.of())));
         when(relationshipRepository.createBatch(anyList()))
                 .thenReturn(List.of(
                         new Relationship("r1", "WORKS_AT", "ada", "acme", Map.of()),
@@ -133,5 +135,27 @@ class RelationshipServiceTest {
         assertThat(result.results()).extracting("status")
                 .containsExactly("created", "created", "rejected");
         assertThat(result.results().get(2).error()).isEqualTo("invalid relationship");
+        verify(entityService).getByIds(Set.of("ada", "acme"));
+        verify(relationshipTypeService).getByName("WORKS_AT");
+        verify(relationshipRepository).createBatch(argThat(rows -> rows.size() == 2));
+    }
+
+    @Test
+    void createBulkFallsBackToIndividualWritesToIsolateDatabaseFailure() {
+        when(relationshipTypeService.getByName("WORKS_AT")).thenReturn(worksAt);
+        when(entityService.getByIds(Set.of("ada", "acme"))).thenReturn(Map.of(
+                "ada", new Entity("ada", "Person", Map.of()),
+                "acme", new Entity("acme", "Organization", Map.of())));
+        when(relationshipRepository.createBatch(anyList()))
+                .thenThrow(new IllegalStateException("batch failed"))
+                .thenReturn(List.of(new Relationship("r1", "WORKS_AT", "ada", "acme", Map.of())))
+                .thenThrow(new IllegalStateException("bad row"));
+
+        var result = relationshipService.createBulk(List.of(
+                new RelationshipCreateRequest("WORKS_AT", "ada", "acme", Map.of()),
+                new RelationshipCreateRequest("WORKS_AT", "ada", "acme", Map.of())));
+
+        assertThat(result.results()).extracting("status").containsExactly("created", "rejected");
+        assertThat(result.results().get(1).error()).isEqualTo("bad row");
     }
 }

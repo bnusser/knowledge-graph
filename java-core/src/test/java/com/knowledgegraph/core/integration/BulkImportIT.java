@@ -69,9 +69,9 @@ class BulkImportIT extends AbstractNeo4jIntegrationTest {
     }
 
     @Test
-    void createsEntitiesAndRelationshipsAcrossMultipleWriteSubBatches() {
-        // WRITE_SUB_BATCH_SIZE is 50; use 120 items to span three sub-batches (50/50/20) and
-        // confirm no items are lost, duplicated, or misindexed at a sub-batch boundary.
+    void createsLargeEntityAndRelationshipBatchesWithoutLosingOutcomes() {
+        // Exercise a request larger than the small partial-success fixtures and confirm the
+        // optimized whole-request persistence path loses or misindexes no outcomes.
         var personType = new EntityTypeDefinitionDto(
                 "ScaleTestPerson", List.of(new PropertyDefinition("name", PropertyDataType.STRING, true)), "name");
         restTemplate.postForEntity("/entity-types", new HttpEntity<>(personType, authHeaders()), String.class);
@@ -118,5 +118,76 @@ class BulkImportIT extends AbstractNeo4jIntegrationTest {
         ResponseEntity<String> response = restTemplate.postForEntity("/entities/bulk", request, String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void duplicateEntitiesWithinOneBulkRequestShareTheCreatedId() {
+        var person = new EntityTypeDefinitionDto(
+                "BulkDuplicatePerson",
+                List.of(new PropertyDefinition("name", PropertyDataType.STRING, true)),
+                "name");
+        restTemplate.postForEntity(
+                "/entity-types", new HttpEntity<>(person, authHeaders()), String.class);
+
+        var request = new BulkEntityCreateRequest(List.of(
+                new EntityCreateRequest("BulkDuplicatePerson", Map.of("name", "Ada")),
+                new EntityCreateRequest("BulkDuplicatePerson", Map.of("name", "Ada"))));
+        ResponseEntity<JsonNode> response = restTemplate.postForEntity(
+                "/entities/bulk", new HttpEntity<>(request, authHeaders()), JsonNode.class);
+
+        JsonNode results = response.getBody().get("results");
+        assertThat(results.get(0).get("status").asText()).isEqualTo("created");
+        assertThat(results.get(1).get("status").asText()).isEqualTo("already_present");
+        assertThat(results.get(1).get("id").asText()).isEqualTo(results.get(0).get("id").asText());
+    }
+
+    @Test
+    void relationshipPropertiesCannotOverwriteCoreTypeDiscriminator() {
+        var entityType = new EntityTypeDefinitionDto(
+                "ReservedPropertyNode",
+                List.of(new PropertyDefinition("name", PropertyDataType.STRING, true)),
+                "name");
+        restTemplate.postForEntity(
+                "/entity-types", new HttpEntity<>(entityType, authHeaders()), String.class);
+        var entityRequest = new BulkEntityCreateRequest(List.of(
+                new EntityCreateRequest("ReservedPropertyNode", Map.of("name", "source")),
+                new EntityCreateRequest("ReservedPropertyNode", Map.of("name", "target"))));
+        JsonNode entityResults = restTemplate
+                .postForEntity(
+                        "/entities/bulk",
+                        new HttpEntity<>(entityRequest, authHeaders()),
+                        JsonNode.class)
+                .getBody()
+                .get("results");
+        String sourceId = entityResults.get(0).get("id").asText();
+        String targetId = entityResults.get(1).get("id").asText();
+
+        var relationshipType = new RelationshipTypeDefinitionDto(
+                "RESERVED_PROPERTY_REL",
+                List.of("ReservedPropertyNode"),
+                List.of("ReservedPropertyNode"),
+                List.of(new PropertyDefinition("type", PropertyDataType.STRING, true)));
+        restTemplate.postForEntity(
+                "/relationship-types",
+                new HttpEntity<>(relationshipType, authHeaders()),
+                String.class);
+        var relationshipRequest = new BulkRelationshipCreateRequest(List.of(
+                new RelationshipCreateRequest(
+                        "RESERVED_PROPERTY_REL", sourceId, targetId, Map.of("type", "CSV_VALUE"))));
+        restTemplate.postForEntity(
+                "/relationships/bulk",
+                new HttpEntity<>(relationshipRequest, authHeaders()),
+                JsonNode.class);
+
+        JsonNode relationships = restTemplate
+                .exchange(
+                        "/entities/" + sourceId + "/relationships?direction=outgoing",
+                        HttpMethod.GET,
+                        new HttpEntity<Void>(null, authHeaders()),
+                        JsonNode.class)
+                .getBody();
+        assertThat(relationships).hasSize(1);
+        assertThat(relationships.get(0).get("type").asText())
+                .isEqualTo("RESERVED_PROPERTY_REL");
     }
 }

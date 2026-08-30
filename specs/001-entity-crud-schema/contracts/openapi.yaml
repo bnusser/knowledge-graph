@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Knowledge Graph Core API
-  version: 0.1.0
+  version: 0.2.0
   description: >
     Entity/relationship CRUD and schema modeling API for the Java knowledge-graph core.
     Every request requires a valid X-API-Key header (Constitution Principle IV minimum
@@ -115,6 +115,24 @@ paths:
                 items:
                   $ref: '#/components/schemas/Entity'
 
+  /entities/bulk:
+    post:
+      summary: Create multiple entities in one request
+      operationId: createEntitiesBulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkEntityCreateRequest'
+      responses:
+        '200':
+          description: Per-item outcomes; invalid items do not prevent valid items from succeeding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResult'
+
   /entities/{entityId}:
     parameters:
       - name: entityId
@@ -218,6 +236,24 @@ paths:
         '422':
           description: Schema validation failure (disallowed source/target type, property rules)
 
+  /relationships/bulk:
+    post:
+      summary: Create multiple relationships in one request
+      operationId: createRelationshipsBulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkRelationshipCreateRequest'
+      responses:
+        '200':
+          description: Per-item outcomes; invalid items do not prevent valid items from succeeding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResult'
+
   /relationships/{relationshipId}:
     parameters:
       - name: relationshipId
@@ -317,6 +353,19 @@ components:
           type: object
           additionalProperties: true
 
+    BulkEntityCreateRequest:
+      type: object
+      required: [items]
+      example:
+        items:
+          - type: Account
+            properties: {name: C1231006815, dataset: paysim}
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityCreateRequest'
+
     EntityUpdateRequest:
       type: object
       required: [properties]
@@ -353,6 +402,47 @@ components:
         properties:
           type: object
           additionalProperties: true
+
+    BulkRelationshipCreateRequest:
+      type: object
+      required: [items]
+      example:
+        items:
+          - type: TRANSACTION
+            sourceEntityId: account-source-id
+            targetEntityId: account-target-id
+            properties: {step: 1, transactionType: TRANSFER, amount: 181.0, dataset: paysim}
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelationshipCreateRequest'
+
+    BulkItemResult:
+      type: object
+      required: [index, status]
+      properties:
+        index:
+          type: integer
+          description: Zero-based position in the submitted items array
+        status:
+          type: string
+          enum: [created, already_present, rejected]
+        id:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+
+    BulkResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BulkItemResult'
 
     RelationshipUpdateRequest:
       type: object

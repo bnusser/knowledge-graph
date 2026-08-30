@@ -10,23 +10,17 @@ import com.knowledgegraph.core.schema.EntityTypeService;
 import com.knowledgegraph.core.schema.SchemaValidator;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EntityService {
-
-    /**
-     * Writes are grouped into sub-batches of this size and persisted via a single
-     * {@code saveAll} (one transaction/commit) rather than one transaction per item, since
-     * per-item transaction commit overhead dominates bulk-load cost (see research notes on the
-     * 002-elliptic-paysim-loaders load performance investigation). Kept small enough that one
-     * rare write failure only affects this many items, preserving FR-012's spirit at a coarser
-     * (sub-batch, not whole-request) grain.
-     */
-    private static final int WRITE_SUB_BATCH_SIZE = 50;
 
     private final EntityRepository entityRepository;
     private final RelationshipRepository relationshipRepository;
@@ -55,45 +49,97 @@ public class EntityService {
 
     public BulkResult createBulk(List<EntityCreateRequest> requests) {
         List<BulkItemResult> results = new ArrayList<>(Collections.nCopies(requests.size(), null));
-        List<PreparedEntity> toPersist = new ArrayList<>();
+        Map<String, EntityTypeDefinition> typeDefinitions = new HashMap<>();
+        List<EntityCandidate> candidates = new ArrayList<>();
 
         for (int index = 0; index < requests.size(); index++) {
             EntityCreateRequest request = requests.get(index);
             try {
-                EntityTypeDefinition typeDefinition = entityTypeService.getByName(request.type()); // 404 (FR-018)
+                EntityTypeDefinition typeDefinition = typeDefinitions.computeIfAbsent(
+                        request.type(), entityTypeService::getByName); // one schema lookup per type
                 schemaValidator.validateEntityProperties(typeDefinition, request.properties()); // 422 (FR-013)
                 String identifyingValue = identifyingValueOf(typeDefinition, request.properties());
-                if (identifyingValue != null) {
-                    var existing = entityRepository.findByTypeAndIdentifyingValue(request.type(), identifyingValue);
-                    if (existing.isPresent()) {
-                        results.set(index, BulkItemResult.alreadyPresent(index, existing.get().getId()));
-                        continue;
-                    }
-                }
-                Entity entity = new Entity(UUID.randomUUID().toString(), request.type(), request.properties());
-                entity.setIdentifyingValue(identifyingValue);
-                toPersist.add(new PreparedEntity(index, entity));
+                candidates.add(new EntityCandidate(index, request, identifyingValue));
             } catch (RuntimeException exception) {
                 results.set(index, BulkItemResult.rejected(index, errorMessage(exception)));
             }
         }
 
-        for (int start = 0; start < toPersist.size(); start += WRITE_SUB_BATCH_SIZE) {
-            List<PreparedEntity> subBatch = toPersist.subList(start, Math.min(start + WRITE_SUB_BATCH_SIZE, toPersist.size()));
+        Map<EntityKey, Entity> knownEntities = new HashMap<>();
+        Map<String, List<String>> valuesByType = candidates.stream()
+                .filter(candidate -> candidate.identifyingValue() != null)
+                .collect(Collectors.groupingBy(
+                        candidate -> candidate.request().type(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(EntityCandidate::identifyingValue, Collectors.toList())));
+        valuesByType.forEach((type, values) -> entityRepository
+                .findAllByTypeAndIdentifyingValueIn(type, values.stream().distinct().toList())
+                .forEach(entity -> knownEntities.put(
+                        new EntityKey(entity.getType(), entity.getIdentifyingValue()), entity)));
+
+        List<PreparedEntity> toPersist = new ArrayList<>();
+        for (EntityCandidate candidate : candidates) {
+            EntityKey key = candidate.identifyingValue() == null
+                    ? null
+                    : new EntityKey(candidate.request().type(), candidate.identifyingValue());
+            Entity existing = key == null ? null : knownEntities.get(key);
+            if (existing != null) {
+                results.set(candidate.index(), BulkItemResult.alreadyPresent(candidate.index(), existing.getId()));
+                continue;
+            }
+            Entity entity = new Entity(
+                    UUID.randomUUID().toString(),
+                    candidate.request().type(),
+                    candidate.request().properties());
+            entity.setIdentifyingValue(candidate.identifyingValue());
+            PreparedEntity prepared = new PreparedEntity(candidate.index(), entity);
+            toPersist.add(prepared);
+            if (key != null) {
+                // Later duplicates in this same request resolve to the ID assigned here.
+                knownEntities.put(key, entity);
+            }
+        }
+
+        if (!toPersist.isEmpty()) {
             try {
-                List<Map<String, Object>> rows = subBatch.stream().map(this::toRow).toList();
-                entityRepository.createBatch(rows); // one transaction (FR-012)
-                for (PreparedEntity prepared : subBatch) {
-                    results.set(prepared.index(), BulkItemResult.created(prepared.index(), prepared.entity().getId()));
+                entityRepository.createBatch(toPersist.stream().map(this::toRow).toList());
+                for (PreparedEntity prepared : toPersist) {
+                    results.set(
+                            prepared.index(),
+                            BulkItemResult.created(prepared.index(), prepared.entity().getId()));
                 }
             } catch (RuntimeException exception) {
-                String message = errorMessage(exception);
-                for (PreparedEntity prepared : subBatch) {
-                    results.set(prepared.index(), BulkItemResult.rejected(prepared.index(), message));
-                }
+                persistEntitiesIndividually(toPersist, results);
             }
         }
         return new BulkResult(results);
+    }
+
+    private void persistEntitiesIndividually(
+            List<PreparedEntity> entities, List<BulkItemResult> results) {
+        for (PreparedEntity prepared : entities) {
+            try {
+                entityRepository.createBatch(List.of(toRow(prepared)));
+                results.set(
+                        prepared.index(),
+                        BulkItemResult.created(prepared.index(), prepared.entity().getId()));
+            } catch (RuntimeException exception) {
+                String identifyingValue = prepared.entity().getIdentifyingValue();
+                if (identifyingValue != null) {
+                    var existing = entityRepository.findByTypeAndIdentifyingValue(
+                            prepared.entity().getType(), identifyingValue);
+                    if (existing.isPresent()) {
+                        results.set(
+                                prepared.index(),
+                                BulkItemResult.alreadyPresent(prepared.index(), existing.get().getId()));
+                        continue;
+                    }
+                }
+                results.set(
+                        prepared.index(),
+                        BulkItemResult.rejected(prepared.index(), errorMessage(exception)));
+            }
+        }
     }
 
     private Map<String, Object> toRow(PreparedEntity prepared) {
@@ -105,10 +151,20 @@ public class EntityService {
         return row;
     }
 
+    private record EntityCandidate(int index, EntityCreateRequest request, String identifyingValue) {}
+
+    private record EntityKey(String type, String identifyingValue) {}
+
     private record PreparedEntity(int index, Entity entity) {}
 
     public Entity getById(String id) {
         return entityRepository.findById(id).orElseThrow(() -> new NotFoundException("Unknown entity '" + id + "'"));
+    }
+
+    public Map<String, Entity> getByIds(Set<String> ids) {
+        Map<String, Entity> entities = new HashMap<>();
+        entityRepository.findAllById(ids).forEach(entity -> entities.put(entity.getId(), entity));
+        return entities;
     }
 
     public List<Entity> list(String type) {
