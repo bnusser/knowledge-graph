@@ -1,0 +1,304 @@
+openapi: 3.0.3
+info:
+  title: Knowledge Graph Core API — Traversal Addition
+  version: 0.3.0
+  description: >
+    Additive bounded-neighborhood and shortest-path operations for the Java knowledge-graph
+    core (feature 003). This contract extends and must be merged into
+    ../../001-entity-crud-schema/contracts/openapi.yaml during implementation.
+servers:
+  - url: http://127.0.0.1:8080
+security:
+  - ApiKeyAuth: []
+paths:
+  /entities/{entityId}/neighborhood:
+    get:
+      summary: Explore a bounded neighborhood from an entity
+      operationId: getEntityNeighborhood
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/MaxHops'
+        - $ref: '#/components/parameters/Direction'
+        - $ref: '#/components/parameters/RelationshipTypes'
+        - $ref: '#/components/parameters/NeighborhoodLimit'
+      responses:
+        '200':
+          description: Complete or explicitly truncated bounded neighborhood
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NeighborhoodResult'
+        '400':
+          $ref: '#/components/responses/MalformedRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MissingEntity'
+        '422':
+          $ref: '#/components/responses/InvalidTraversal'
+
+  /entities/{sourceEntityId}/shortest-path/{destinationEntityId}:
+    get:
+      summary: Find one deterministic shortest unweighted path
+      operationId: getShortestPath
+      parameters:
+        - name: sourceEntityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: destinationEntityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/MaxHops'
+        - $ref: '#/components/parameters/Direction'
+        - $ref: '#/components/parameters/RelationshipTypes'
+      responses:
+        '200':
+          description: A complete shortest path or an explicit no-path outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortestPathResult'
+        '400':
+          $ref: '#/components/responses/MalformedRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MissingEntity'
+        '422':
+          $ref: '#/components/responses/InvalidTraversal'
+
+components:
+  parameters:
+    EntityId:
+      name: entityId
+      in: path
+      required: true
+      schema:
+        type: string
+    MaxHops:
+      name: maxHops
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 10
+        default: 3
+    Direction:
+      name: direction
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [outgoing, incoming, both]
+        default: both
+    RelationshipTypes:
+      name: relationshipTypes
+      in: query
+      required: false
+      description: >
+        Repeat the parameter to allow multiple schema-defined semantic relationship types.
+        Omitted or empty means all types. A schema-defined type is valid even with no instances.
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+        default: []
+    NeighborhoodLimit:
+      name: limit
+      in: query
+      required: false
+      description: Combined maximum of unique returned entities and relationships.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+
+  schemas:
+    TraversalDirection:
+      type: string
+      enum: [outgoing, incoming, both]
+
+    TraversalEntity:
+      type: object
+      required: [id, type, properties]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+
+    TraversalRelationship:
+      type: object
+      required: [id, type, sourceEntityId, targetEntityId, properties]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        sourceEntityId:
+          type: string
+        targetEntityId:
+          type: string
+        properties:
+          type: object
+          additionalProperties: true
+
+    TraversedEntity:
+      allOf:
+        - $ref: '#/components/schemas/TraversalEntity'
+        - type: object
+          required: [distance]
+          properties:
+            distance:
+              type: integer
+              minimum: 0
+
+    TraversedRelationship:
+      allOf:
+        - $ref: '#/components/schemas/TraversalRelationship'
+        - type: object
+          required: [encounteredAtHop]
+          properties:
+            encounteredAtHop:
+              type: integer
+              minimum: 1
+              maximum: 10
+
+    NeighborhoodResult:
+      type: object
+      required:
+        - startEntityId
+        - maxHops
+        - direction
+        - relationshipTypes
+        - limit
+        - resultSize
+        - truncated
+        - entities
+        - relationships
+      properties:
+        startEntityId:
+          type: string
+        maxHops:
+          type: integer
+        direction:
+          $ref: '#/components/schemas/TraversalDirection'
+        relationshipTypes:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+        resultSize:
+          type: integer
+          minimum: 1
+        truncated:
+          type: boolean
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraversedEntity'
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraversedRelationship'
+
+    PathOutcome:
+      type: string
+      enum: [found, no_path]
+
+    ShortestPathResult:
+      type: object
+      required:
+        - sourceEntityId
+        - destinationEntityId
+        - maxHops
+        - direction
+        - relationshipTypes
+        - outcome
+        - hopCount
+        - entities
+        - relationships
+      properties:
+        sourceEntityId:
+          type: string
+        destinationEntityId:
+          type: string
+        maxHops:
+          type: integer
+        direction:
+          $ref: '#/components/schemas/TraversalDirection'
+        relationshipTypes:
+          type: array
+          items:
+            type: string
+        outcome:
+          $ref: '#/components/schemas/PathOutcome'
+        hopCount:
+          type: integer
+          minimum: 0
+          maximum: 10
+          nullable: true
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraversalEntity'
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraversalRelationship'
+
+    Error:
+      type: object
+      required: [timestamp, status, error]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+
+  responses:
+    MalformedRequest:
+      description: A query value could not be parsed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid X-API-Key header
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    MissingEntity:
+      description: Start, source, or destination entity does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidTraversal:
+      description: Invalid bound, direction, or undefined relationship type
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
