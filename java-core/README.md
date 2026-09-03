@@ -67,25 +67,18 @@ mvn verify "-Dsurefire.excludedGroups=" "-Dtest=*Test" "-Dit.test=RelationshipTr
 ```
 
 The full-data traversal benchmark is a separate opt-in HTTP test against an already loaded
-external PaySim or Elliptic stack. Its seed manifest uses non-comment lines in the form
-`degree-band,entity-id[,relationship-type]`:
+external PaySim or Elliptic stack. With the Java core running against that graph, use the
+PowerShell wrapper from `java-core/` (or invoke it by path from elsewhere):
 
 ```powershell
-$env:TRAVERSAL_PERF_NEO4J_URI = "bolt://localhost:7687"
-$env:TRAVERSAL_PERF_NEO4J_USERNAME = "neo4j"
-$env:TRAVERSAL_PERF_NEO4J_PASSWORD = "local-dev-password"
-mvn verify `
-  "-Dsurefire.excludedGroups=" `
-  "-Dtest=*Test" `
-  "-Dit.test=TraversalDatasetPerformanceIT" `
-  "-Dtraversal.perf.enabled=true" `
-  "-Dtraversal.perf.dataset=paysim" `
-  "-Dtraversal.perf.apiUrl=http://127.0.0.1:8080" `
-  "-Dtraversal.perf.apiKey=local-dev-key" `
-  "-Dtraversal.perf.seedManifest=path\to\paysim-seeds.txt"
+.\run-traversal-performance.ps1 -Dataset elliptic
+.\run-traversal-performance.ps1 -Dataset paysim
 ```
 
-Repeat with `elliptic` and its seed manifest. The harness performs warmups and at least 200
+The wrapper uses the committed dataset seed manifests and local-development connection defaults.
+Override them with `-ApiUrl`, `-ApiKey`, `-Neo4jUri`, `-Neo4jUsername`, `-Neo4jPassword`, or
+`-SeedManifest` when needed. A seed manifest uses non-comment lines in the form
+`degree-band,entity-id[,relationship-type]`. The harness performs warmups and at least 200
 measured requests, reports p50/p95/p99/max, requires at least 95% under two seconds, validates
 response structure, and checks Neo4j counts before and after.
 
