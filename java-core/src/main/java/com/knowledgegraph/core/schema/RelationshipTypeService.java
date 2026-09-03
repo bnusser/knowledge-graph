@@ -1,9 +1,11 @@
 package com.knowledgegraph.core.schema;
 
 import com.knowledgegraph.core.exception.ConflictException;
+import com.knowledgegraph.core.exception.InvalidTraversalRequestException;
 import com.knowledgegraph.core.exception.NotFoundException;
 import com.knowledgegraph.core.exception.SchemaValidationException;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
@@ -56,5 +58,25 @@ public class RelationshipTypeService {
         return repository
                 .findById(name)
                 .orElseThrow(() -> new NotFoundException("Unknown relationship type '" + name + "'")); // FR-018
+    }
+
+    /** Validates traversal filters against schema definitions, independent of current instances. */
+    public List<String> normalizeAndValidateFilter(List<String> requestedTypes) {
+        if (requestedTypes == null || requestedTypes.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = requestedTypes.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(type -> !type.isEmpty())
+                .distinct()
+                .sorted()
+                .toList();
+        for (String type : normalized) {
+            if (!repository.existsById(type)) {
+                throw new InvalidTraversalRequestException("Unknown relationship type '" + type + "'");
+            }
+        }
+        return normalized;
     }
 }

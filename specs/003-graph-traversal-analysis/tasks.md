@@ -22,8 +22,8 @@ test. Task IDs are ordered for the recommended single-developer implementation s
 
 **Purpose**: Establish the additive public contract before implementation.
 
-- [ ] T001 Merge both feature 003 paths, parameters, strict required response schemas, and API version 0.3.0 from `specs/003-graph-traversal-analysis/contracts/traversal-api.yaml` into `specs/001-entity-crud-schema/contracts/openapi.yaml`, rewrite merged schema references as local `#/components/...` references, and update metadata in `java-core/src/main/java/com/knowledgegraph/core/config/OpenApiConfig.java`
-- [ ] T002 [P] Add a multi-stage Java 21 application image and a health-ordered, API-key-protected Java-core Compose service using `bolt://neo4j:7687`, in-container `SERVER_ADDRESS=0.0.0.0`, and host-loopback port publishing so `docker compose up --build` starts the complete demo stack in `java-core/Dockerfile` and `java-core/docker-compose.yml`
+- [X] T001 Merge both feature 003 paths, parameters, strict required response schemas, and API version 0.3.0 from `specs/003-graph-traversal-analysis/contracts/traversal-api.yaml` into `specs/001-entity-crud-schema/contracts/openapi.yaml`, rewrite merged schema references as local `#/components/...` references, and update metadata in `java-core/src/main/java/com/knowledgegraph/core/config/OpenApiConfig.java`
+- [X] T002 [P] Add a multi-stage Java 21 application image and a health-ordered, API-key-protected Java-core Compose service using `bolt://neo4j:7687`, in-container `SERVER_ADDRESS=0.0.0.0`, and host-loopback port publishing so `docker compose up --build` starts the complete demo stack in `java-core/Dockerfile` and `java-core/docker-compose.yml`
 
 ---
 
@@ -34,13 +34,13 @@ story.
 
 **CRITICAL**: Complete this phase before implementing any user story.
 
-- [ ] T003 [P] Add failing unit tests for empty, duplicate, defined-unused, and undefined relationship-type filter validation in `java-core/src/test/java/com/knowledgegraph/core/unit/RelationshipTypeServiceTest.java`
-- [ ] T004 [P] Add `InvalidTraversalRequestException` and uniform 400/422 error mappings in `java-core/src/main/java/com/knowledgegraph/core/exception/InvalidTraversalRequestException.java` and `java-core/src/main/java/com/knowledgegraph/core/config/ApiExceptionHandler.java`
-- [ ] T005 Implement bulk schema-defined type validation and stable filter normalization required by T003 in `java-core/src/main/java/com/knowledgegraph/core/schema/RelationshipTypeService.java`
-- [ ] T006 [P] Implement case-insensitive request parsing and canonical `outgoing`, `incoming`, and `both` values in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalDirection.java`
-- [ ] T007 [P] Implement the internal current/next/source/target/relationship read projection in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalEdge.java`
-- [ ] T008 Add failing Neo4j integration tests for parameterized batched frontier reads, native direction, semantic type filtering, deduplication, and candidate caps in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalRepositoryIT.java`
-- [ ] T009 Implement fixed-direction parameterized neighborhood and path frontier queries required by T008 in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalRepository.java`
+- [X] T003 [P] Add failing unit tests for empty, duplicate, defined-unused, and undefined relationship-type filter validation in `java-core/src/test/java/com/knowledgegraph/core/unit/RelationshipTypeServiceTest.java`
+- [X] T004 [P] Add `InvalidTraversalRequestException` and uniform 400/422 error mappings in `java-core/src/main/java/com/knowledgegraph/core/exception/InvalidTraversalRequestException.java` and `java-core/src/main/java/com/knowledgegraph/core/config/ApiExceptionHandler.java`
+- [X] T005 Implement bulk schema-defined type validation and stable filter normalization required by T003 in `java-core/src/main/java/com/knowledgegraph/core/schema/RelationshipTypeService.java`
+- [X] T006 [P] Implement case-insensitive request parsing and canonical `outgoing`, `incoming`, and `both` values in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalDirection.java`
+- [X] T007 [P] Implement the internal current/next/source/target/relationship read projection in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalEdge.java`
+- [X] T008 Add failing Neo4j integration tests for parameterized batched frontier reads, native direction, semantic type filtering, deduplication, and candidate caps in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalRepositoryIT.java`
+- [X] T009 Implement fixed-direction parameterized neighborhood and path frontier queries required by T008 in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalRepository.java`
 
 **Checkpoint**: Shared schema validation and safe one-hop expansion are ready.
 
@@ -57,17 +57,17 @@ records, minimum distances, stable ordering, atomic truncation, and no graph mut
 
 ### Tests for User Story 1
 
-- [ ] T010 [P] [US1] Add failing unit tests for defaults, zero-hop results, breadth-first distance/order, cycles, self-loops, parallel/cross-branch edges, endpoint closure, and first-nonfitting-candidate truncation in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalServiceTest.java`
-- [ ] T011 [P] [US1] Add failing HTTP/Testcontainers tests for bounded, isolated, repeated deterministic, missing-start, and read-only neighborhood requests in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalIT.java`
+- [X] T010 [P] [US1] Add failing unit tests for defaults, zero-hop results, breadth-first distance/order, cycles, self-loops, parallel/cross-branch edges, endpoint closure, and first-nonfitting-candidate truncation in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalServiceTest.java`
+- [X] T011 [P] [US1] Add failing HTTP/Testcontainers tests for bounded, isolated, repeated deterministic, missing-start, and read-only neighborhood requests in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalIT.java`
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Implement entity response fields plus minimum hop distance in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversedEntityDto.java`
-- [ ] T013 [P] [US1] Implement relationship response fields plus encounter hop in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversedRelationshipDto.java`
-- [ ] T014 [US1] Implement normalized bounds, result size, truncation, and ordered record collections in `java-core/src/main/java/com/knowledgegraph/core/traversal/NeighborhoodResultDto.java`
-- [ ] T015 [US1] Implement bounded level-order neighborhood BFS, visited maps, atomic candidate costing, candidate-cap calculation, and final deterministic sorting in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
-- [ ] T016 [US1] Implement `GET /entities/{entityId}/neighborhood` with defaults and DTO mapping in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalController.java`
-- [ ] T017 [US1] Emit one sanitized neighborhood completion event with applied bounds, record counts, truncation, outcome, and elapsed time in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
+- [X] T012 [P] [US1] Implement entity response fields plus minimum hop distance in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversedEntityDto.java`
+- [X] T013 [P] [US1] Implement relationship response fields plus encounter hop in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversedRelationshipDto.java`
+- [X] T014 [US1] Implement normalized bounds, result size, truncation, and ordered record collections in `java-core/src/main/java/com/knowledgegraph/core/traversal/NeighborhoodResultDto.java`
+- [X] T015 [US1] Implement bounded level-order neighborhood BFS, visited maps, atomic candidate costing, candidate-cap calculation, and final deterministic sorting in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
+- [X] T016 [US1] Implement `GET /entities/{entityId}/neighborhood` with defaults and DTO mapping in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalController.java`
+- [X] T017 [US1] Emit one sanitized neighborhood completion event with applied bounds, record counts, truncation, outcome, and elapsed time in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
 
 **Checkpoint**: User Story 1 is a runnable and independently testable neighborhood MVP.
 
@@ -84,15 +84,15 @@ endpoint behavior, bound exclusion, and explicit no-path results.
 
 ### Tests for User Story 2
 
-- [ ] T018 [P] [US2] Add failing unit tests for minimum-hop discovery, lexicographic equal-path tie-breaking, cycle-safe parent reconstruction, zero-hop paths, hop bounds, and no-path outcomes in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalServiceTest.java`
-- [ ] T019 [P] [US2] Add failing HTTP/Testcontainers tests for found, equal-route, same-endpoint, disconnected, missing-endpoint, and bound-excluded shortest paths in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalIT.java`
+- [X] T018 [P] [US2] Add failing unit tests for minimum-hop discovery, lexicographic equal-path tie-breaking, cycle-safe parent reconstruction, zero-hop paths, hop bounds, and no-path outcomes in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalServiceTest.java`
+- [X] T019 [P] [US2] Add failing HTTP/Testcontainers tests for found, equal-route, same-endpoint, disconnected, missing-endpoint, and bound-excluded shortest paths in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalIT.java`
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Implement `found`/`no_path`, nullable hop count, and ordered entity/relationship response collections in `java-core/src/main/java/com/knowledgegraph/core/traversal/ShortestPathResultDto.java`
-- [ ] T021 [US2] Implement lexicographically ordered level BFS, first-discovery parent state, destination selection, and complete path reconstruction in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
-- [ ] T022 [US2] Implement `GET /entities/{sourceEntityId}/shortest-path/{destinationEntityId}` without a separate result limit in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalController.java`
-- [ ] T023 [US2] Emit one sanitized shortest-path completion event with applied bounds, route counts, `found`/`no_path` outcome, and elapsed time in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
+- [X] T020 [P] [US2] Implement `found`/`no_path`, nullable hop count, and ordered entity/relationship response collections in `java-core/src/main/java/com/knowledgegraph/core/traversal/ShortestPathResultDto.java`
+- [X] T021 [US2] Implement lexicographically ordered level BFS, first-discovery parent state, destination selection, and complete path reconstruction in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
+- [X] T022 [US2] Implement `GET /entities/{sourceEntityId}/shortest-path/{destinationEntityId}` without a separate result limit in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalController.java`
+- [X] T023 [US2] Emit one sanitized shortest-path completion event with applied bounds, route counts, `found`/`no_path` outcome, and elapsed time in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
 
 **Checkpoint**: User Stories 1 and 2 both pass their independent acceptance tests.
 
@@ -109,16 +109,16 @@ protection, uniform errors, sanitized logs, and the two-second criterion on PayS
 
 ### Tests for User Story 3
 
-- [ ] T024 [P] [US3] Add failing unit tests for hop/limit hard bounds, direction parsing, empty/duplicate/defined-unused/undefined type filters, normalized filter echo, and consistent filters across both operations in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalServiceTest.java`
-- [ ] T025 [P] [US3] Add failing HTTP/Testcontainers tests for incoming/outgoing/both, repeated type parameters, dense truncation, malformed versus semantic errors, API-key rejection, generated OpenAPI paths, and unchanged graph counts in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalIT.java`
-- [ ] T026 [P] [US3] Add failing captured-output tests for one parseable completion event per operation and omission of API keys, credentials, and unrelated graph properties in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalLoggingTest.java`
+- [X] T024 [P] [US3] Add failing unit tests for hop/limit hard bounds, direction parsing, empty/duplicate/defined-unused/undefined type filters, normalized filter echo, and consistent filters across both operations in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalServiceTest.java`
+- [X] T025 [P] [US3] Add failing HTTP/Testcontainers tests for incoming/outgoing/both, repeated type parameters, dense truncation, malformed versus semantic errors, API-key rejection, generated OpenAPI paths, and unchanged graph counts in `java-core/src/test/java/com/knowledgegraph/core/integration/TraversalIT.java`
+- [X] T026 [P] [US3] Add failing captured-output tests for one parseable completion event per operation and omission of API keys, credentials, and unrelated graph properties in `java-core/src/test/java/com/knowledgegraph/core/unit/TraversalLoggingTest.java`
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Enforce 0..10 hops, 1..1,000 neighborhood limits, canonical direction, schema-defined types, and identical filter behavior for neighborhoods and paths in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
-- [ ] T028 [US3] Bind repeated `relationshipTypes`, `direction`, `maxHops`, and neighborhood `limit` query parameters to both public operations in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalController.java`
-- [ ] T029 [US3] Complete sanitized structured completion logging required by T026 without logging properties or secrets in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
-- [ ] T030 [US3] Implement an opt-in external `@Tag("perf")` HTTP benchmark with warmups, deterministic seed manifests, at least 200 measured requests, latency percentiles, structural assertions, and before/after Neo4j counts in `java-core/src/test/java/com/knowledgegraph/core/performance/TraversalDatasetPerformanceIT.java`
+- [X] T027 [US3] Enforce 0..10 hops, 1..1,000 neighborhood limits, canonical direction, schema-defined types, and identical filter behavior for neighborhoods and paths in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
+- [X] T028 [US3] Bind repeated `relationshipTypes`, `direction`, `maxHops`, and neighborhood `limit` query parameters to both public operations in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalController.java`
+- [X] T029 [US3] Complete sanitized structured completion logging required by T026 without logging properties or secrets in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
+- [X] T030 [US3] Implement an opt-in external `@Tag("perf")` HTTP benchmark with warmups, deterministic seed manifests, at least 200 measured requests, latency percentiles, structural assertions, and before/after Neo4j counts in `java-core/src/test/java/com/knowledgegraph/core/performance/TraversalDatasetPerformanceIT.java`
 - [ ] T031 [US3] Run T030 against the fully loaded PaySim graph and record dataset counts, resolved seeds, workload, environment, p50/p95/p99/max, under-two-second percentage, and read-only count comparison in `specs/003-graph-traversal-analysis/validation.md`
 - [ ] T032 [US3] Run T030 separately against the fully loaded Elliptic graph and append dataset counts, resolved seeds, workload, environment, p50/p95/p99/max, under-two-second percentage, and read-only count comparison in `specs/003-graph-traversal-analysis/validation.md`
 
@@ -130,9 +130,9 @@ protection, uniform errors, sanitized logs, and the two-second criterion on PayS
 
 **Purpose**: Align documentation, existing performance guidance, and final verification evidence.
 
-- [ ] T033 [P] Document the one-command Compose demo stack, foreground Maven development alternative, both traversal endpoints, default verification, and opt-in benchmark commands in `java-core/README.md`
-- [ ] T034 [P] Add feature 003 usage and design-artifact links to the graph traversal section in `README.md`
-- [ ] T035 Correct the legacy performance-test Maven guidance while preserving its synthetic regression role in `java-core/src/test/java/com/knowledgegraph/core/integration/RelationshipTraversalPerformanceIT.java` and `java-core/README.md`
+- [X] T033 [P] Document the one-command Compose demo stack, foreground Maven development alternative, both traversal endpoints, default verification, and opt-in benchmark commands in `java-core/README.md`
+- [X] T034 [P] Add feature 003 usage and design-artifact links to the graph traversal section in `README.md`
+- [X] T035 Correct the legacy performance-test Maven guidance while preserving its synthetic regression role in `java-core/src/test/java/com/knowledgegraph/core/integration/RelationshipTraversalPerformanceIT.java` and `java-core/README.md`
 - [ ] T036 Run `mvn verify`, execute every applicable scenario in `specs/003-graph-traversal-analysis/quickstart.md`, verify the canonical OpenAPI document against `/v3/api-docs`, and record commands and outcomes in `specs/003-graph-traversal-analysis/validation.md`
 
 ---

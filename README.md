@@ -21,7 +21,7 @@ flowchart LR
 
 | Layer | Status | Location |
 |---|---|---|
-| Java core (entity/relationship CRUD + schema, Neo4j) | ✅ Implemented | [java-core/](java-core/) |
+| Java core (CRUD, schema, traversal/analysis, Neo4j) | ✅ Implemented | [java-core/](java-core/) |
 | Dataset loaders (Elliptic + PaySim, bulk-import API) | ✅ Implemented | [loaders/](loaders/) |
 | MCP server (exposes the Java API as MCP tools) | Not started | future slice |
 | Python LangGraph agent (agentic tool-use orchestrator) | Not started | future slice |
@@ -40,7 +40,7 @@ entries below aren't yet-created specs, just the intended sequence.
 
 1. ✅ `001-entity-crud-schema` — Java/Spring Boot core: entity/relationship CRUD, schema modeling
 2. ✅ `002-elliptic-paysim-loaders` — bulk-import API + Elliptic/PaySim dataset loaders
-3. Traversal + graph algorithms (extends the Java core)
+3. ✅ `003-graph-traversal-analysis` — bounded neighborhoods + deterministic shortest paths
 4. Query DSL
 5. NLP-based entity extraction
 6. MCP server (exposes the Java API as MCP tools)
@@ -94,6 +94,26 @@ Full details, including a scenario-by-scenario validation walkthrough, are in
 [java-core/README.md](java-core/README.md) and
 [specs/001-entity-crud-schema/quickstart.md](specs/001-entity-crud-schema/quickstart.md).
 
+## Graph Traversal and Analysis
+
+The Java core supports bounded, cycle-safe multi-hop neighborhoods and deterministic shortest
+paths. Both operations accept `maxHops`, `direction` (`outgoing`, `incoming`, or `both`), and
+repeated schema-defined `relationshipTypes`; neighborhoods additionally enforce a combined
+entity-plus-relationship `limit` and report truncation.
+
+```powershell
+$headers = @{ "X-API-Key" = "local-dev-key" }
+Invoke-RestMethod -Headers $headers `
+  -Uri "http://127.0.0.1:8080/entities/<id>/neighborhood?maxHops=2&direction=both&limit=100"
+Invoke-RestMethod -Headers $headers `
+  -Uri "http://127.0.0.1:8080/entities/<source>/shortest-path/<destination>?maxHops=3&direction=outgoing"
+```
+
+Design and validation details: [spec](specs/003-graph-traversal-analysis/spec.md),
+[plan](specs/003-graph-traversal-analysis/plan.md),
+[API contract](specs/003-graph-traversal-analysis/contracts/traversal-api.yaml), and
+[quickstart](specs/003-graph-traversal-analysis/quickstart.md).
+
 ## Dataset Loaders
 
 `loaders/` contains Python CLI loaders that populate the graph via `java-core`'s bulk-import
@@ -131,7 +151,7 @@ Full details in [specs/002-elliptic-paysim-loaders/quickstart.md](specs/002-elli
 ```powershell
 cd java-core
 mvn verify                                     # unit tests + Testcontainers integration tests (excludes @Tag("perf"))
-mvn verify -Dsurefire.excludedGroups=          # also includes the 1M-entity/5M-relationship performance test
+mvn verify "-Dsurefire.excludedGroups=" "-Dtest=*Test" "-Dit.test=RelationshipTraversalPerformanceIT"  # legacy synthetic perf regression
 ```
 
 ### Windows + Docker Desktop troubleshooting

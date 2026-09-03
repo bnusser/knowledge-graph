@@ -19,8 +19,8 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Knowledge Graph Core API")
-                        .version("0.1.0")
-                        .description("Entity/relationship CRUD and schema modeling API for the Java knowledge-graph core."))
+                        .version("0.3.0")
+                        .description("Entity/relationship CRUD, schema modeling, and bounded traversal API for the Java knowledge-graph core."))
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
                 .components(new Components()
                         .addSecuritySchemes(

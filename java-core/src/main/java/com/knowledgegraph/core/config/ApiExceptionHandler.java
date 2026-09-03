@@ -1,6 +1,7 @@
 package com.knowledgegraph.core.config;
 
 import com.knowledgegraph.core.exception.ConflictException;
+import com.knowledgegraph.core.exception.InvalidTraversalRequestException;
 import com.knowledgegraph.core.exception.NotFoundException;
 import com.knowledgegraph.core.exception.SchemaValidationException;
 import java.time.Instant;
@@ -8,6 +9,7 @@ import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -34,6 +36,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(SchemaValidationException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(SchemaValidationException e) {
         return body(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidTraversalRequestException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidTraversal(InvalidTraversalRequestException e) {
+        return body(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleMalformedRequest(MethodArgumentTypeMismatchException e) {
+        return body(HttpStatus.BAD_REQUEST, "Unable to parse query parameter '" + e.getName() + "'");
     }
 
     private ResponseEntity<Map<String, Object>> body(HttpStatus status, String message) {

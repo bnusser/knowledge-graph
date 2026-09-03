@@ -43,3 +43,5 @@ build/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+*.tmp
+*.swp

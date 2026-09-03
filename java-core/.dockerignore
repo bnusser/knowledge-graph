@@ -1,0 +1,11 @@
+.git/
+.idea/
+.vscode/
+target/
+*.class
+*.jar
+*.log*
+.env*
+Dockerfile*
+docker-compose*.yml
+.dockerignore

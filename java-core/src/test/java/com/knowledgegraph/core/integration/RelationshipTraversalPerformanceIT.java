@@ -15,8 +15,9 @@ import org.springframework.data.neo4j.core.Neo4jClient;
  * SC-003: single-hop relationship retrieval from either endpoint entity in under 1 second at
  * ~1,000,000 entities / ~5,000,000 relationships. Seeds via batched Cypher (not the REST API —
  * 1M individual HTTP calls would be impractically slow for a test) since this measures graph
- * traversal performance, not the API layer. Tagged so `mvn test` skips it by default; run
- * explicitly with {@code mvn test -Dgroups=perf}.
+ * traversal performance, not the API layer. Tagged so normal verification skips it; run
+ * explicitly with {@code mvn verify -Dsurefire.excludedGroups= -Dtest=*Test
+ * -Dit.test=RelationshipTraversalPerformanceIT}.
  */
 @Tag("perf")
 class RelationshipTraversalPerformanceIT extends AbstractNeo4jIntegrationTest {

@@ -19,5 +19,21 @@ services:
       timeout: 5s
       retries: 10
 
+  java-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    environment:
+      APP_SECURITY_API_KEY: ${APP_SECURITY_API_KEY:-local-dev-key}
+      SERVER_ADDRESS: 0.0.0.0
+      SPRING_NEO4J_URI: bolt://neo4j:7687
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: local-dev-password
+    ports:
+      - "127.0.0.1:8080:8080"
+
 volumes:
   kg-neo4j-data:
