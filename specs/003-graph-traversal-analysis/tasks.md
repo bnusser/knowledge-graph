@@ -119,8 +119,8 @@ protection, uniform errors, sanitized logs, and the two-second criterion on PayS
 - [X] T028 [US3] Bind repeated `relationshipTypes`, `direction`, `maxHops`, and neighborhood `limit` query parameters to both public operations in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalController.java`
 - [X] T029 [US3] Complete sanitized structured completion logging required by T026 without logging properties or secrets in `java-core/src/main/java/com/knowledgegraph/core/traversal/TraversalService.java`
 - [X] T030 [US3] Implement an opt-in external `@Tag("perf")` HTTP benchmark with warmups, deterministic seed manifests, at least 200 measured requests, latency percentiles, structural assertions, and before/after Neo4j counts in `java-core/src/test/java/com/knowledgegraph/core/performance/TraversalDatasetPerformanceIT.java`
-- [ ] T031 [US3] Run T030 against the fully loaded PaySim graph and record dataset counts, resolved seeds, workload, environment, p50/p95/p99/max, under-two-second percentage, and read-only count comparison in `specs/003-graph-traversal-analysis/validation.md`
-- [ ] T032 [US3] Run T030 separately against the fully loaded Elliptic graph and append dataset counts, resolved seeds, workload, environment, p50/p95/p99/max, under-two-second percentage, and read-only count comparison in `specs/003-graph-traversal-analysis/validation.md`
+- [X] T031 [US3] Run T030 against the fully loaded PaySim graph and record dataset counts, resolved seeds, workload, environment, p50/p95/p99/max, under-two-second percentage, and read-only count comparison in `specs/003-graph-traversal-analysis/validation.md`
+- [X] T032 [US3] Run T030 separately against the fully loaded Elliptic graph and append dataset counts, resolved seeds, workload, environment, p50/p95/p99/max, under-two-second percentage, and read-only count comparison in `specs/003-graph-traversal-analysis/validation.md`
 
 **Checkpoint**: All three user stories and full-scale acceptance criteria are validated.
 
@@ -133,7 +133,7 @@ protection, uniform errors, sanitized logs, and the two-second criterion on PayS
 - [X] T033 [P] Document the one-command Compose demo stack, foreground Maven development alternative, both traversal endpoints, default verification, and opt-in benchmark commands in `java-core/README.md`
 - [X] T034 [P] Add feature 003 usage and design-artifact links to the graph traversal section in `README.md`
 - [X] T035 Correct the legacy performance-test Maven guidance while preserving its synthetic regression role in `java-core/src/test/java/com/knowledgegraph/core/integration/RelationshipTraversalPerformanceIT.java` and `java-core/README.md`
-- [ ] T036 Run `mvn verify`, execute every applicable scenario in `specs/003-graph-traversal-analysis/quickstart.md`, verify the canonical OpenAPI document against `/v3/api-docs`, and record commands and outcomes in `specs/003-graph-traversal-analysis/validation.md`
+- [X] T036 Run `mvn verify`, execute every applicable scenario in `specs/003-graph-traversal-analysis/quickstart.md`, verify the canonical OpenAPI document against `/v3/api-docs`, and record commands and outcomes in `specs/003-graph-traversal-analysis/validation.md`
 
 ---
 

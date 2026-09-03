@@ -47,18 +47,64 @@ graph counts before and after.
 
 ### PaySim
 
-Status: **not yet executed for this implementation run**. Dataset counts, resolved seeds,
-workload, environment, percentile report, and read-only comparison must be appended here after a
-fully loaded PaySim stack and deterministic manifest are available.
+Status: **PASS** on 2026-09-03.
+
+- Dataset counts before and after: 9,073,900 `Account` entities and 6,362,620 `TRANSACTION`
+  relationships; counts were unchanged.
+- Seed manifest: [performance/paysim-seeds.csv](./performance/paysim-seeds.csv), containing three
+  deterministic seeds in each band: low degree 1, medium degree 2 (dataset p95), and high degree
+  105–113.
+- Workload: 24 warmups and 240 measured neighborhood requests, rotating hops 1–3, outgoing,
+  incoming, and both directions, limits 100/500/1,000, and alternating filtered/unfiltered calls.
+- Environment: Java 21.0.12.1, Windows 11, Spring Boot 3.3.4, Neo4j 5.24.2, loopback HTTP/Bolt.
+- Latency: p50 **33 ms**, p95 **56 ms**, p99 **67 ms**, maximum **73 ms**.
+- Under 2,000 ms: **100.00%** (required: at least 95%).
+
+Command: `mvn verify "-Dsurefire.excludedGroups=" "-Dtest=TraversalLoggingTest"
+"-Dit.test=TraversalDatasetPerformanceIT" "-Dtraversal.perf.enabled=true"
+"-Dtraversal.perf.dataset=paysim" ...`. Result: **BUILD SUCCESS** in 38.423 seconds.
 
 ### Elliptic
 
-Status: **not yet executed for this implementation run**. Dataset counts, resolved seeds,
-workload, environment, percentile report, and read-only comparison must be appended here after a
-fully loaded Elliptic stack and deterministic manifest are available.
+Status: **PASS** on 2026-09-03.
 
-Read-only inspection of the available `kg-neo4j` container found 9,277,669 `Entity` nodes and
-6,596,974 `RELATES` relationships, including both 9,073,900 `Account` entities and 203,769
-`Transaction` entities. This is a co-loaded PaySim + Elliptic graph, while T031/T032 require each
-dataset to be benchmarked separately. The API was also not running. No destructive dataset reset
-was performed, so T031, T032, and the final all-scenarios task T036 remain open.
+- Dataset counts before and after: 203,769 `Transaction` entities and 234,355 `FLOWS_TO`
+  relationships; counts were unchanged during the benchmark.
+- Pre-validation reconciliation found one loader-missed source row, `96302549 → 46230282`, while
+  both endpoints existed. It was restored once through `POST /relationships`; the resulting count
+  matches all 234,355 data rows in `elliptic_txs_edgelist.csv`.
+- Seed manifest: [performance/elliptic-seeds.csv](./performance/elliptic-seeds.csv), containing
+  three deterministic seeds in each band: low degree 1, medium degree 2 (dataset median), and high
+  degree 284–473.
+- Workload: 24 warmups and 240 measured neighborhood requests, rotating hops 1–3, outgoing,
+  incoming, and both directions, limits 100/500/1,000, and alternating filtered/unfiltered calls.
+- Environment: Java 21.0.12.1, Windows 11, Spring Boot 3.3.4, Neo4j 5.24.2, loopback HTTP/Bolt.
+- Latency: p50 **30 ms**, p95 **63 ms**, p99 **91 ms**, maximum **99 ms**.
+- Under 2,000 ms: **100.00%** (required: at least 95%).
+
+Command: `mvn verify "-Dsurefire.excludedGroups=" "-Dtest=TraversalLoggingTest"
+"-Dit.test=TraversalDatasetPerformanceIT" "-Dtraversal.perf.enabled=true"
+"-Dtraversal.perf.dataset=elliptic" ...`. Result: **BUILD SUCCESS** in 40.729 seconds.
+
+The two datasets coexist as disconnected, type-distinct subgraphs in the preserved Neo4j volume.
+The harness was executed separately for each dataset, scoped counts to that dataset's entity and
+relationship types, used only its seed manifest and relationship filter, and verified its own
+before/after counts. No destructive reset was required.
+
+## Final verification
+
+Completed on 2026-09-03 against both the Testcontainers fixture and the full local graph.
+
+- `mvn verify`: **PASS**, all unit tests and all 27 integration tests, in 47.313 seconds.
+- Live neighborhood quickstart: **PASS**, including start distance, endpoint closure,
+  `resultSize`, ordering/limit behavior, type filtering, and explicit truncation (99 returned
+  records with `limit=100`).
+- Live shortest-path quickstart: **PASS** for a one-hop found route, a zero-hop same-entity route,
+  and a cross-dataset `no_path` result.
+- Live error/authentication quickstart: **PASS** for 401, 404, and 422 responses, including an
+  undefined relationship type.
+- Canonical/generated contract comparison: **PASS**. Both documents report API version 0.3.0,
+  both traversal paths are present, and the generated neighborhood required-field set matches the
+  canonical contract.
+- Read-only check: **PASS**. Total graph counts were unchanged at 9,277,669 entities and 6,596,975
+  relationships across the live quickstart requests.

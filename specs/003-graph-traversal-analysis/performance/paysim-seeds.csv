@@ -1,0 +1,11 @@
+# Deterministic PaySim seeds selected 2026-09-03; format: band,entity-id,relationship-type
+# Low degree=1, medium degree=2 (dataset p95), high degree>=20.
+low,000001c5-f8a3-4ae7-95fd-16ae8dedda1b,TRANSACTION
+low,00000250-87dd-482a-a155-7243d4f07e81,TRANSACTION
+low,00000274-707d-4164-897e-5befded8068d,TRANSACTION
+medium,000008d7-7e45-4f86-8420-8c2669a76ef5,TRANSACTION
+medium,0000a15d-84de-4d4d-bbb7-a360979129b9,TRANSACTION
+medium,0001d449-7d0d-4489-88e3-f5b8136326e3,TRANSACTION
+high,a53a6499-c4d9-4273-a1db-d66d63c325ff,TRANSACTION
+high,c5accc59-f948-4507-851b-0b5028877f11,TRANSACTION
+high,7dd06a0e-c2f1-445c-894f-59b0f06598f5,TRANSACTION

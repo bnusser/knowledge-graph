@@ -53,8 +53,8 @@ class TraversalDatasetPerformanceIT {
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
         try (Driver driver = GraphDatabase.driver(neo4jUri, AuthTokens.basic(neo4jUsername, neo4jPassword))) {
-            Counts before = counts(driver);
-            List<String> availableTypes = relationshipTypes(driver);
+            Counts before = counts(driver, dataset);
+            List<String> availableTypes = relationshipTypes(driver, dataset);
             assertThat(availableTypes).as("loaded graph relationship types").isNotEmpty();
 
             for (int index = 0; index < warmups; index++) {
@@ -70,7 +70,7 @@ class TraversalDatasetPerformanceIT {
                 assertNeighborhoodStructure(result);
             }
 
-            Counts after = counts(driver);
+            Counts after = counts(driver, dataset);
             assertThat(after).as("traversal must be read-only").isEqualTo(before);
             Collections.sort(latencies);
             long belowTwoSeconds = latencies.stream().filter(value -> value < 2_000).count();
@@ -160,23 +160,31 @@ class TraversalDatasetPerformanceIT {
         });
     }
 
-    private Counts counts(Driver driver) {
+    private Counts counts(Driver driver, String dataset) {
+        String entityType = dataset.equals("paysim") ? "Account" : "Transaction";
+        String relationshipType = dataset.equals("paysim") ? "TRANSACTION" : "FLOWS_TO";
         try (var session = driver.session()) {
             return session.executeRead(transaction -> {
                 var record = transaction.run(
-                                "MATCH (n:Entity) WITH count(n) AS nodes "
-                                        + "OPTIONAL MATCH ()-[r:RELATES]->() RETURN nodes, count(r) AS relationships")
+                                "MATCH (n:Entity) WHERE n.type = $entityType WITH count(n) AS nodes "
+                                        + "OPTIONAL MATCH ()-[r:RELATES]->() WHERE r.type = $relationshipType "
+                                        + "RETURN nodes, count(r) AS relationships",
+                                java.util.Map.of(
+                                        "entityType", entityType,
+                                        "relationshipType", relationshipType))
                         .single();
                 return new Counts(record.get("nodes").asLong(), record.get("relationships").asLong());
             });
         }
     }
 
-    private List<String> relationshipTypes(Driver driver) {
+    private List<String> relationshipTypes(Driver driver, String dataset) {
+        String expectedType = dataset.equals("paysim") ? "TRANSACTION" : "FLOWS_TO";
         try (var session = driver.session()) {
             return session.executeRead(transaction -> transaction
-                    .run("MATCH ()-[r:RELATES]->() WHERE r.type IS NOT NULL "
-                            + "RETURN DISTINCT r.type AS type ORDER BY type LIMIT 20")
+                    .run("MATCH ()-[r:RELATES]->() WHERE r.type = $type "
+                            + "RETURN DISTINCT r.type AS type",
+                            java.util.Map.of("type", expectedType))
                     .list(record -> record.get("type").asString()));
         }
     }

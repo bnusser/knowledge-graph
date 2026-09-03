@@ -1,0 +1,11 @@
+# Deterministic Elliptic seeds selected 2026-09-03; format: band,entity-id,relationship-type
+# Low degree=1, medium degree=2 (dataset median), high degree>=20.
+low,000009df-f7cc-405a-a67f-06423464b8cd,FLOWS_TO
+low,00011d59-6644-403c-a2c1-e112eea22421,FLOWS_TO
+low,0001f069-07cd-42ea-8c95-6f40bb5b640e,FLOWS_TO
+medium,00014abd-e1b2-4ef3-9797-f2ecd41c4f1b,FLOWS_TO
+medium,00020175-7ae2-482a-bd1f-6319466535be,FLOWS_TO
+medium,000247aa-ec69-49fd-b1fe-e0504e672196,FLOWS_TO
+high,25061b73-93a0-4821-9dac-06061738a381,FLOWS_TO
+high,ecce6d33-fc54-424a-89de-1a7eaa1300ac,FLOWS_TO
+high,bcbbd275-8ebd-4323-808d-caeffa2c577f,FLOWS_TO
